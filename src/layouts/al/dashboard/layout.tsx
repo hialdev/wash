@@ -82,8 +82,8 @@ export function DashboardLayout({
       const userPermissions = user?.permissions || authData?.permissions || [];
 
       // Check if user has ANY of the required roles or permissions
-      const hasMatch = allowedRoles.some(
-         (item) => (userRole && item === userRole) || userPermissions.includes(item)
+      const hasMatch = (Array.isArray(allowedRoles) && allowedRoles.length > 0 ? allowedRoles : []).some(
+         (item: any) => (userRole && item === userRole) || userPermissions.includes(item)
       );
 
       // Return TRUE if we should HIDE the item (i.e., user DOES NOT have the role or permission)
