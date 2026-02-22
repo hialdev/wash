@@ -88,6 +88,7 @@ func (h *MyOrderHandler) GetMyOrders(c *fiber.Ctx) error {
 	// Base query filtered by UserID
 	db := h.DB.Distinct().
 		Preload("OrderProducts.Product").
+		Preload("OrderServices.Service"). // Preload services
 		Preload("OrderLogs").
 		Where("user_id = ?", userID)
 
@@ -154,6 +155,11 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		return utils.RespApi(c, "bad", "Validasi gagal", err.Error())
 	}
 
+	// Validate at least one item exists
+	if len(input.Products) == 0 && len(input.Services) == 0 {
+		return utils.RespApi(c, "bad", "Order harus memiliki minimal 1 produk atau layanan", nil)
+	}
+
 	// Get user ID from JWT middleware context
 	userID, err := h.GetUserIDFromToken(c)
 	if err != nil {
@@ -167,6 +173,8 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 
 	// Calculate total bill and validate stock
 	var totalBill float64 = 0
+
+	// Prepare Product Items
 	var orderItems []struct {
 		ProductID       *uuid.UUID
 		Qty             *int
@@ -271,6 +279,47 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		}
 	}
 
+	// Prepare Service Items
+	var orderServiceItems []struct {
+		ServiceID    *uuid.UUID
+		Qty          *float64
+		PriceAtOrder *float64
+		Subtotal     *float64
+		Notes        *string
+		Service      models.Service
+	}
+
+	for _, serviceInput := range input.Services {
+		var service models.Service
+		if err := h.DB.First(&service, "id = ?", serviceInput.ServiceID).Error; err != nil {
+			return utils.RespApi(c, "bad", "Service tidak ditemukan", err.Error())
+		}
+
+		if service.IsActive != nil && !*service.IsActive {
+			return utils.RespApi(c, "bad", fmt.Sprintf("Service %s tidak aktif", *service.Name), nil)
+		}
+
+		priceAtOrder := *service.Price
+		subtotal := priceAtOrder * *serviceInput.Qty
+		totalBill += subtotal
+
+		orderServiceItems = append(orderServiceItems, struct {
+			ServiceID    *uuid.UUID
+			Qty          *float64
+			PriceAtOrder *float64
+			Subtotal     *float64
+			Notes        *string
+			Service      models.Service
+		}{
+			ServiceID:    serviceInput.ServiceID,
+			Qty:          serviceInput.Qty,
+			PriceAtOrder: &priceAtOrder,
+			Subtotal:     &subtotal,
+			Notes:        serviceInput.Notes,
+			Service:      service,
+		})
+	}
+
 	orderNumber := fmt.Sprintf("ORD-%s-%d", time.Now().Format("20060102"), time.Now().Unix())
 
 	tx := h.DB.Begin()
@@ -296,6 +345,7 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		return utils.RespApi(c, "ise", "Tidak dapat membuat Order", err.Error())
 	}
 
+	// Create order products
 	for _, item := range orderItems {
 		orderProduct := models.OrderProduct{
 			OrderID:         &order.ID,
@@ -312,11 +362,25 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		}
 	}
 
-	// Reuse existing Xendit logic helper
-	// Note: We need to access the helper method which is on OrderHandler.
-	// Since we are in the same package, we can duplicate the private logic or make it a public util.
-	// For now, I will duplicate the private helper functionality here locally to avoid large refactors.
-	xenditInvoiceID, xenditInvoiceURL, err := createXenditInvoiceLocal(order, orderItems)
+	// Create order services
+	for _, item := range orderServiceItems {
+		orderService := models.OrderService{
+			OrderID:      &order.ID,
+			ServiceID:    item.ServiceID,
+			Qty:          item.Qty,
+			PriceAtOrder: item.PriceAtOrder,
+			Subtotal:     item.Subtotal,
+			Notes:        item.Notes,
+		}
+
+		if err := tx.Create(&orderService).Error; err != nil {
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Tidak dapat membuat Order Service", err.Error())
+		}
+	}
+
+	// Create Xendit invoice
+	xenditInvoiceID, xenditInvoiceURL, err := createXenditInvoiceLocal(order, orderItems, orderServiceItems)
 	if err != nil {
 		tx.Rollback()
 		return utils.RespApi(c, "ise", "Gagal membuat invoice Xendit", err.Error())
@@ -339,7 +403,9 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		return utils.RespApi(c, "ise", "Gagal menyimpan data", err.Error())
 	}
 
-	h.DB.Preload("OrderProducts.Product").First(&order, "id = ?", order.ID)
+	h.DB.Preload("OrderProducts.Product").
+		Preload("OrderServices.Service"). // Preload services
+		First(&order, "id = ?", order.ID)
 
 	return utils.RespApi(c, "ok", "Berhasil membuat pesanan", order)
 }
@@ -356,6 +422,7 @@ func (h *MyOrderHandler) GetMyOrderDetail(c *fiber.Ctx) error {
 
 	var order models.Order
 	if err := h.DB.Preload("OrderProducts.Product").
+		Preload("OrderServices.Service"). // Preload services
 		Preload("OrderLogs").
 		Where("id = ? AND user_id = ?", orderID, userID).
 		First(&order).Error; err != nil {
@@ -377,18 +444,33 @@ func createXenditInvoiceLocal(order models.Order, orderItems []struct {
 	PriceAtOrder    *float64
 	Subtotal        *float64
 	Product         models.Product
+}, orderServiceItems []struct {
+	ServiceID    *uuid.UUID
+	Qty          *float64
+	PriceAtOrder *float64
+	Subtotal     *float64
+	Notes        *string
+	Service      models.Service
 }) (string, string, error) {
+	// Prepare invoice items
 	var items []map[string]interface{}
+
+	// Add Product Items
 	for _, item := range orderItems {
 		itemName := *item.Product.Title
-		quantity := *item.Qty
-		price := *item.PriceAtOrder
 
 		// For individual tracking products, show requested_length in item name
-		if item.RequestedLength != nil && item.MeasurementUnit != nil {
+		// And price per item for Xendit = requested_length * price_per_unit
+		var quantity float64
+		var price float64
+
+		if item.RequestedLength != nil && *item.RequestedLength > 0 {
 			itemName = fmt.Sprintf("%s (%v %s per item)", *item.Product.Title, *item.RequestedLength, *item.MeasurementUnit)
-			// Price per item for Xendit = requested_length × price_per_unit
+			quantity = float64(*item.Qty)
 			price = *item.RequestedLength * *item.PriceAtOrder
+		} else if item.Qty != nil {
+			quantity = float64(*item.Qty)
+			price = *item.PriceAtOrder
 		}
 
 		items = append(items, map[string]interface{}{
@@ -398,11 +480,21 @@ func createXenditInvoiceLocal(order models.Order, orderItems []struct {
 		})
 	}
 
+	// Add Service Items
+	for _, item := range orderServiceItems {
+		items = append(items, map[string]interface{}{
+			"name":     *item.Service.Name + " (Service)",
+			"quantity": *item.Qty,
+			"price":    *item.PriceAtOrder,
+		})
+	}
+
+	// Prepare invoice payload
 	payload := map[string]interface{}{
 		"external_id":      order.ID.String(),
 		"amount":           *order.TotalBill,
 		"description":      fmt.Sprintf("Order %s", *order.OrderNumber),
-		"invoice_duration": 86400,
+		"invoice_duration": 86400, // 24 hours
 		"currency":         "IDR",
 		"items":            items,
 	}

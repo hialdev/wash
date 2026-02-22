@@ -20,9 +20,9 @@ type SavedFile struct {
 }
 
 var (
-	sizeLimit int = 10; // MB
-	uploadFolder string ="uploads"
-	allowed = map[string]bool{
+	sizeLimit    int    = 10 // MB
+	uploadFolder string = "uploads"
+	allowed             = map[string]bool{
 		".webp": true, ".png": true, ".jpg": true, ".jpeg": true,
 		".tiff": true, ".svg": true, ".pdf": true,
 		".docx": true, ".ppt": true, ".pptx": true,
@@ -33,12 +33,12 @@ var (
 
 func UploadFile(c *fiber.Ctx, fieldName string, folder string) (string, error) {
 	fileHeader, err := c.FormFile(fieldName)
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
 
 	if !checkExtAllowed(filepath.Ext(fileHeader.Filename)) {
-		return "", fmt.Errorf("%s","Jenis file tidak didukung")
+		return "", fmt.Errorf("%s", "Jenis file tidak didukung")
 	}
 
 	if int(fileHeader.Size) > sizeLimit*1024*1024 {
@@ -47,7 +47,7 @@ func UploadFile(c *fiber.Ctx, fieldName string, folder string) (string, error) {
 
 	filename := newFileName(fileHeader.Filename)
 	relativePath := filepath.Join(uploadFolder, folder, filename)
-	filePath := filepath.Join(".",relativePath)
+	filePath := filepath.Join(".", relativePath)
 
 	src, err := fileHeader.Open()
 	if err != nil {
@@ -107,9 +107,9 @@ func DeleteFile(filePath string) error {
 	if strings.Contains(filePath, "..") {
 		return fmt.Errorf("invalid file path")
 	}
-	
+
 	full := filepath.Clean(filepath.Join(".", filePath))
-	
+
 	// Cek apakah file ada
 	if _, err := os.Stat(full); os.IsNotExist(err) {
 		return nil // File tidak ada, tidak masalah
@@ -124,7 +124,7 @@ func DeleteFile(filePath string) error {
 		if err == nil {
 			return nil // Berhasil dihapus
 		}
-		
+
 		// Jika masih retry tersisa, tunggu sebentar
 		if i < maxRetries-1 {
 			time.Sleep(time.Millisecond * 100)
@@ -132,7 +132,7 @@ func DeleteFile(filePath string) error {
 			return fmt.Errorf("gagal menghapus file setelah %d percobaan: %w", maxRetries, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -142,14 +142,14 @@ func UpdateFile(c *fiber.Ctx, oldpath string, fieldName string, folder string) (
 	if err != nil {
 		return "", fmt.Errorf("gagal upload file baru: %w", err)
 	}
-	
+
 	// Hapus file lama setelah file baru berhasil diupload
 	if oldpath != "" {
 		// Gunakan goroutine untuk menghapus file lama secara asynchronous
 		go func(path string) {
 			// Tunggu sebentar untuk memastikan tidak ada proses lain yang menggunakan file
 			time.Sleep(time.Millisecond * 200)
-			
+
 			maxRetries := 5
 			for i := 0; i < maxRetries; i++ {
 				if err := DeleteFile(path); err == nil {
@@ -160,13 +160,13 @@ func UpdateFile(c *fiber.Ctx, oldpath string, fieldName string, folder string) (
 			}
 		}(oldpath)
 	}
-	
+
 	return newFilePath, nil
 }
 
 func UploadFileFlex(c *fiber.Ctx, fieldName string, folder string) ([]string, error) {
 	form, err := c.MultipartForm()
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 
@@ -188,7 +188,7 @@ func UploadFileFlex(c *fiber.Ctx, fieldName string, folder string) ([]string, er
 
 		filename := newFileName(fileHeader.Filename)
 		relativePath := filepath.Join(uploadFolder, folder, filename)
-		filePath := filepath.Join(".",relativePath)
+		filePath := filepath.Join(".", relativePath)
 
 		src, err := fileHeader.Open()
 		if err != nil {
@@ -212,12 +212,12 @@ func UpdateFileFlex(c *fiber.Ctx, oldpaths []string, fieldName string, folder st
 	if err != nil {
 		return nil, fmt.Errorf("gagal upload file baru: %w", err)
 	}
-	
+
 	// Hapus file lama secara asynchronous
 	if len(oldpaths) > 0 {
 		go func(paths []string) {
 			time.Sleep(time.Millisecond * 200)
-			
+
 			for _, oldpath := range paths {
 				maxRetries := 5
 				for i := 0; i < maxRetries; i++ {
@@ -229,7 +229,7 @@ func UpdateFileFlex(c *fiber.Ctx, oldpaths []string, fieldName string, folder st
 			}
 		}(oldpaths)
 	}
-	
+
 	return newFilePaths, nil
 }
 
@@ -267,5 +267,16 @@ func storeFile(src io.Reader, path string) error {
 		return fmt.Errorf("gagal sync file: %w", err)
 	}
 
+	return nil
+}
+
+func MakeTimestamp() int64 {
+	return time.Now().UnixNano() / int64(time.Millisecond)
+}
+
+func EnsureDir(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return os.MkdirAll(path, 0755)
+	}
 	return nil
 }

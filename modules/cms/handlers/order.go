@@ -29,19 +29,27 @@ type OrderProductInput struct {
 	MeasurementUnit *string  `json:"measurement_unit,omitempty"`
 }
 
+type OrderServiceInput struct {
+	ServiceID *uuid.UUID `json:"service_id" validate:"required"`
+	Qty       *float64   `json:"qty" validate:"required,gt=0"`
+	Notes     *string    `json:"notes,omitempty"`
+}
+
 type OrderInput struct {
 	UserID          *uuid.UUID          `json:"user_id" validate:"required"`
 	AddressReceiver *string             `json:"address_receiver" validate:"required"`
 	PhoneReceiver   *string             `json:"phone_receiver" validate:"required"`
 	Notes           *string             `json:"notes,omitempty"`
-	Products        []OrderProductInput `json:"products" validate:"required,min=1,dive"`
+	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
+	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
 }
 
 type CustomerOrderInput struct {
 	AddressReceiver *string             `json:"address_receiver" validate:"required"`
 	PhoneReceiver   *string             `json:"phone_receiver" validate:"required"`
 	Notes           *string             `json:"notes,omitempty"`
-	Products        []OrderProductInput `json:"products" validate:"required,min=1,dive"`
+	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
+	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
 }
 
 type OrderHandler struct {
@@ -60,7 +68,9 @@ func (h *OrderHandler) GetOrder(c *fiber.Ctx) error {
 	}
 
 	var order models.Order
-	if err := h.DB.Preload("OrderProducts.Product").First(&order, "id = ?", id).Error; err != nil {
+	if err := h.DB.Preload("OrderProducts.Product").
+		Preload("OrderServices.Service"). // Preload services
+		First(&order, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "ise", "Gagal mendapatkan data Order", err.Error())
 	}
 
@@ -79,7 +89,7 @@ func (h *OrderHandler) GetAllOrders(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	// Base query with Distinct to avoid duplication from Preload JOIN
-	db := h.DB.Distinct().Preload("OrderProducts.Product")
+	db := h.DB.Distinct().Preload("OrderProducts.Product").Preload("OrderServices.Service")
 
 	// Filter search
 	if search != "" {
@@ -160,8 +170,15 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		return utils.RespApi(c, "bad", "Validasi gagal", err.Error())
 	}
 
+	// Validate at least one item exists
+	if len(input.Products) == 0 && len(input.Services) == 0 {
+		return utils.RespApi(c, "bad", "Order harus memiliki minimal 1 produk atau layanan", nil)
+	}
+
 	// Calculate total bill and validate stock
 	var totalBill float64 = 0
+
+	// Prepare Product Items
 	var orderItems []struct {
 		ProductID       *uuid.UUID
 		Qty             *int
@@ -261,6 +278,47 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		}
 	}
 
+	// Prepare Service Items
+	var orderServiceItems []struct {
+		ServiceID    *uuid.UUID
+		Qty          *float64
+		PriceAtOrder *float64
+		Subtotal     *float64
+		Notes        *string
+		Service      models.Service
+	}
+
+	for _, serviceInput := range input.Services {
+		var service models.Service
+		if err := h.DB.First(&service, "id = ?", serviceInput.ServiceID).Error; err != nil {
+			return utils.RespApi(c, "bad", "Service tidak ditemukan", err.Error())
+		}
+
+		if service.IsActive != nil && !*service.IsActive {
+			return utils.RespApi(c, "bad", fmt.Sprintf("Service %s tidak aktif", *service.Name), nil)
+		}
+
+		priceAtOrder := *service.Price
+		subtotal := priceAtOrder * *serviceInput.Qty
+		totalBill += subtotal
+
+		orderServiceItems = append(orderServiceItems, struct {
+			ServiceID    *uuid.UUID
+			Qty          *float64
+			PriceAtOrder *float64
+			Subtotal     *float64
+			Notes        *string
+			Service      models.Service
+		}{
+			ServiceID:    serviceInput.ServiceID,
+			Qty:          serviceInput.Qty,
+			PriceAtOrder: &priceAtOrder,
+			Subtotal:     &subtotal,
+			Notes:        serviceInput.Notes,
+			Service:      service,
+		})
+	}
+
 	// Generate order number
 	orderNumber := fmt.Sprintf("ORD-%s-%d", time.Now().Format("20060102"), time.Now().Unix())
 
@@ -306,8 +364,25 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		}
 	}
 
+	// Create order services
+	for _, item := range orderServiceItems {
+		orderService := models.OrderService{
+			OrderID:      &order.ID,
+			ServiceID:    item.ServiceID,
+			Qty:          item.Qty,
+			PriceAtOrder: item.PriceAtOrder,
+			Subtotal:     item.Subtotal,
+			Notes:        item.Notes,
+		}
+
+		if err := tx.Create(&orderService).Error; err != nil {
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Tidak dapat membuat Order Service", err.Error())
+		}
+	}
+
 	// Create Xendit invoice
-	xenditInvoiceID, xenditInvoiceURL, err := h.createXenditInvoice(order, orderItems)
+	xenditInvoiceID, xenditInvoiceURL, err := h.createXenditInvoice(order, orderItems, orderServiceItems)
 	if err != nil {
 		tx.Rollback()
 		return utils.RespApi(c, "ise", "Gagal membuat invoice Xendit", err.Error())
@@ -325,7 +400,6 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 	// Create order log for waiting_payment status (inside transaction)
 	if err := CreateOrderLog(tx, order.ID, "waiting_payment", GetDefaultReason("waiting_payment"), nil, nil); err != nil {
 		tx.Rollback()
-		fmt.Printf("Failed to create order log: %v\n", err)
 		return utils.RespApi(c, "ise", "Gagal membuat order log", err.Error())
 	}
 
@@ -335,7 +409,9 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 	}
 
 	// Load relations
-	h.DB.Preload("OrderProducts.Product").First(&order, "id = ?", order.ID)
+	h.DB.Preload("OrderProducts.Product").
+		Preload("OrderServices.Service"). // Preload services
+		First(&order, "id = ?", order.ID)
 
 	return utils.RespApi(c, "ok", "Berhasil membuat data Order", order)
 }
@@ -348,21 +424,47 @@ func (h *OrderHandler) createXenditInvoice(order models.Order, orderItems []stru
 	PriceAtOrder    *float64
 	Subtotal        *float64
 	Product         models.Product
+}, orderServiceItems []struct {
+	ServiceID    *uuid.UUID
+	Qty          *float64
+	PriceAtOrder *float64
+	Subtotal     *float64
+	Notes        *string
+	Service      models.Service
 }) (string, string, error) {
 	// Prepare invoice items
 	var items []map[string]interface{}
+
+	// Add Product Items
 	for _, item := range orderItems {
-		// Determine quantity for invoice
+		itemName := *item.Product.Title
+
+		// For individual tracking products, show requested_length in item name
+		// And price per item for Xendit = requested_length * price_per_unit
 		var quantity float64
-		if item.RequestedLength != nil {
-			quantity = *item.RequestedLength
+		var price float64
+
+		if item.RequestedLength != nil && *item.RequestedLength > 0 {
+			itemName = fmt.Sprintf("%s (%v %s per item)", *item.Product.Title, *item.RequestedLength, *item.MeasurementUnit)
+			quantity = float64(*item.Qty)
+			price = *item.RequestedLength * *item.PriceAtOrder
 		} else if item.Qty != nil {
 			quantity = float64(*item.Qty)
+			price = *item.PriceAtOrder
 		}
 
 		items = append(items, map[string]interface{}{
-			"name":     *item.Product.Title,
+			"name":     itemName,
 			"quantity": quantity,
+			"price":    price,
+		})
+	}
+
+	// Add Service Items
+	for _, item := range orderServiceItems {
+		items = append(items, map[string]interface{}{
+			"name":     *item.Service.Name + " (Service)",
+			"quantity": *item.Qty,
 			"price":    *item.PriceAtOrder,
 		})
 	}

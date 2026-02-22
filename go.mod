@@ -23,7 +23,10 @@ require (
 	gorm.io/gorm v1.31.0
 )
 
-require github.com/coder/websocket v1.8.14 // indirect
+require (
+	github.com/coder/websocket v1.8.14 // indirect
+	github.com/jung-kurt/gofpdf v1.16.2 // indirect
+)
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect

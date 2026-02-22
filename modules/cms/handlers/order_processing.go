@@ -37,15 +37,31 @@ type ProcessingItem struct {
 	Pieces          []ProcessingPiece `json:"pieces"`
 }
 
+// ProcessingService represents an order service for processing
+type ProcessingService struct {
+	OrderServiceID uuid.UUID       `json:"order_service_id"`
+	Service        *models.Service `json:"service"`
+	Qty            float64         `json:"qty"`
+	PriceAtOrder   float64         `json:"price_at_order"`
+	Notes          string          `json:"notes"`
+}
+
 // ProcessingDataResponse represents the response for GetProcessingData
 type ProcessingDataResponse struct {
-	Order           *models.Order    `json:"order"`
-	ProcessingItems []ProcessingItem `json:"processing_items"`
+	Order              *models.Order       `json:"order"`
+	ProcessingItems    []ProcessingItem    `json:"processing_items"`
+	ProcessingServices []ProcessingService `json:"processing_services"`
 }
 
 // ProcessOrderRequest represents the request body for ProcessOrder
 type ProcessOrderRequest struct {
-	ProcessingItems []ProcessOrderItem `json:"processing_items"`
+	ProcessingItems    []ProcessOrderItem    `json:"processing_items"`
+	ProcessingServices []ProcessOrderService `json:"processing_services"`
+}
+
+type ProcessOrderService struct {
+	OrderServiceID uuid.UUID `json:"order_service_id"`
+	Notes          string    `json:"notes"`
 }
 
 type ProcessOrderItem struct {
@@ -69,9 +85,11 @@ func (h *OrderHandler) GetProcessingData(c *fiber.Ctx) error {
 		return utils.RespApi(c, "bad", "Invalid order ID", err.Error())
 	}
 
-	// Get order with products
+	// Get order with products and services
 	var order models.Order
-	if err := h.DB.Preload("OrderProducts.Product").First(&order, "id = ?", id).Error; err != nil {
+	if err := h.DB.Preload("OrderProducts.Product").
+		Preload("OrderServices.Service"). // Preload services
+		First(&order, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "nf", "Order not found", err.Error())
 	}
 
@@ -82,6 +100,7 @@ func (h *OrderHandler) GetProcessingData(c *fiber.Ctx) error {
 
 	// Build processing items
 	processingItems := []ProcessingItem{}
+	processingServices := []ProcessingService{}
 
 	for _, op := range order.OrderProducts {
 		if op.Product == nil {
@@ -134,9 +153,29 @@ func (h *OrderHandler) GetProcessingData(c *fiber.Ctx) error {
 		processingItems = append(processingItems, item)
 	}
 
+	for _, os := range order.OrderServices {
+		if os.Service == nil {
+			continue
+		}
+
+		item := ProcessingService{
+			OrderServiceID: os.ID,
+			Service:        os.Service,
+			Qty:            *os.Qty,
+			PriceAtOrder:   *os.PriceAtOrder,
+			Notes:          "",
+		}
+		if os.Notes != nil {
+			item.Notes = *os.Notes
+		}
+
+		processingServices = append(processingServices, item)
+	}
+
 	response := ProcessingDataResponse{
-		Order:           &order,
-		ProcessingItems: processingItems,
+		Order:              &order,
+		ProcessingItems:    processingItems,
+		ProcessingServices: processingServices,
 	}
 
 	return utils.RespApi(c, "ok", "Processing data retrieved successfully", response)
@@ -160,7 +199,9 @@ func (h *OrderHandler) ProcessOrder(c *fiber.Ctx) error {
 
 	// Get order
 	var order models.Order
-	if err := h.DB.Preload("OrderProducts.Product").First(&order, "id = ?", id).Error; err != nil {
+	if err := h.DB.Preload("OrderProducts.Product").
+		Preload("OrderServices.Service"). // Preload services
+		First(&order, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "nf", "Order not found", err.Error())
 	}
 
@@ -440,14 +481,18 @@ func (h *OrderHandler) ProcessOrder(c *fiber.Ctx) error {
 
 	// Create processing log with detailed information including product and inventory details
 	type ProcessingLogDetail struct {
-		OrderProductID string `json:"order_product_id"`
-		ProductTitle   string `json:"product_title"`
+		OrderProductID string `json:"order_product_id,omitempty"`
+		ProductTitle   string `json:"product_title,omitempty"`
 		Pieces         []struct {
 			PieceNumber int    `json:"piece_number"`
 			UseRemnant  bool   `json:"use_remnant"`
 			InventoryID string `json:"inventory_id,omitempty"`
 			ItemNumber  string `json:"item_number,omitempty"`
-		} `json:"pieces"`
+		} `json:"pieces,omitempty"`
+		// Service fields
+		OrderServiceID string `json:"order_service_id,omitempty"`
+		ServiceName    string `json:"service_name,omitempty"`
+		ServiceQty     string `json:"service_qty,omitempty"`
 	}
 
 	var logDetails []ProcessingLogDetail
@@ -501,9 +546,32 @@ func (h *OrderHandler) ProcessOrder(c *fiber.Ctx) error {
 		logDetails = append(logDetails, detail)
 	}
 
+	// Add service logs
+	for _, reqService := range req.ProcessingServices {
+		var os *models.OrderService
+		for i := range order.OrderServices {
+			if order.OrderServices[i].ID == reqService.OrderServiceID {
+				os = &order.OrderServices[i]
+				break
+			}
+		}
+
+		if os == nil || os.Service == nil {
+			continue
+		}
+
+		detail := ProcessingLogDetail{
+			OrderServiceID: reqService.OrderServiceID.String(),
+			ServiceName:    *os.Service.Name + " (Service)",
+			ServiceQty:     fmt.Sprintf("%.2f %s", *os.Qty, *os.Service.Unit),
+		}
+		logDetails = append(logDetails, detail)
+	}
+
 	processingDetailsJSON, _ := json.Marshal(logDetails)
 	processingDetailsStr := string(processingDetailsJSON)
-	notes := fmt.Sprintf("Order processed successfully with %d product(s)", len(req.ProcessingItems))
+	notes := fmt.Sprintf("Order processed successfully with %d product(s) and %d service(s)",
+		len(req.ProcessingItems), len(req.ProcessingServices))
 
 	processingLog := models.OrderProcessingLog{
 		OrderID:           &order.ID,

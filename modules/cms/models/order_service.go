@@ -1,0 +1,43 @@
+package models
+
+import (
+	authModels "aldev/modules/auth/models"
+	"aldev/modules/global/models"
+
+	"github.com/google/uuid"
+)
+
+type OrderService struct {
+	models.BaseModel
+	OrderID      *uuid.UUID `json:"order_id" gorm:"type:uuid;not null"`
+	Order        *Order     `json:"order,omitempty" gorm:"foreignKey:OrderID"`
+	ServiceID    *uuid.UUID `json:"service_id" gorm:"type:uuid;not null"`
+	Service      *Service   `json:"service,omitempty" gorm:"foreignKey:ServiceID"`
+	Qty          *float64   `json:"qty" gorm:"type:decimal(10,2);not null" validate:"required,gt=0"`
+	PriceAtOrder *float64   `json:"price_at_order" gorm:"type:decimal(15,2);not null"`
+	Subtotal     *float64   `json:"subtotal" gorm:"type:decimal(15,2);not null"`
+	Notes        *string    `json:"notes,omitempty" gorm:"type:text"`
+
+	// Relationships
+	ServiceProcess []OrderServiceProcess `json:"service_process,omitempty" gorm:"foreignKey:OrderServiceID"`
+	ServiceDetail  *OrderServiceDetail   `json:"service_detail,omitempty" gorm:"foreignKey:OrderServiceID"`
+}
+
+type OrderServiceProcess struct {
+	models.BaseModel
+	OrderServiceID *uuid.UUID       `json:"order_service_id" gorm:"type:uuid;not null"`
+	OrderService   *OrderService    `json:"order_service,omitempty" gorm:"foreignKey:OrderServiceID"`
+	ProcessType    *string          `json:"process_type" gorm:"type:varchar(50);not null"` // pickup, processing, delivery, done, other
+	Description    *string          `json:"description,omitempty" gorm:"type:text"`
+	Images         *string          `json:"images,omitempty" gorm:"type:text"` // JSON Array
+	CreatedBy      *uuid.UUID       `json:"created_by" gorm:"type:uuid"`
+	Creator        *authModels.User `json:"creator,omitempty" gorm:"foreignKey:CreatedBy"`
+}
+
+type OrderServiceDetail struct {
+	models.BaseModel
+	OrderServiceID *uuid.UUID    `json:"order_service_id" gorm:"type:uuid;not null"`
+	OrderService   *OrderService `json:"order_service,omitempty" gorm:"foreignKey:OrderServiceID"`
+	Description    *string       `json:"description,omitempty" gorm:"type:text"` // HTML content
+	Images         *string       `json:"images,omitempty" gorm:"type:text"`      // JSON Array
+}

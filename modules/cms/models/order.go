@@ -22,6 +22,7 @@ type Order struct {
 	XenditInvoiceID  *string          `json:"xendit_invoice_id,omitempty" gorm:"type:varchar(200)"`
 	XenditInvoiceURL *string          `json:"xendit_invoice_url,omitempty" gorm:"type:text"`
 	OrderProducts    []OrderProduct   `json:"order_products,omitempty" gorm:"foreignKey:OrderID"`
+	OrderServices    []OrderService   `json:"order_services,omitempty" gorm:"foreignKey:OrderID"`
 	OrderLogs        []OrderLogStatus `json:"order_logs,omitempty" gorm:"foreignKey:OrderID"`
 }
 

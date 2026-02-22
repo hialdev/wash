@@ -76,7 +76,23 @@ func main() {
 		&CMSModels.Adjustment{},
 		&CMSModels.StockMovement{},
 		&CMSModels.InventoryItem{},
+		&CMSModels.InventoryItem{},
 		&CMSModels.InventoryAllocation{},
+
+		// Services
+		&CMSModels.ServiceCategory{},
+		&CMSModels.Service{},
+		&CMSModels.OrderService{},
+		&CMSModels.OrderServiceProcess{},
+		&CMSModels.OrderServiceDetail{},
+
+		// Raw Materials (COGS)
+		&CMSModels.RawMaterial{},
+		&CMSModels.RawMaterialPurchase{},
+		&CMSModels.RawMaterialMovement{},
+
+		// Finance
+		&CMSModels.Journal{},
 	)
 
 	routes.InitRoutes(app, connection.DB)

@@ -87,6 +87,10 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	api.Get("/catalog", catalog.GetCatalogProducts)
 	api.Get("/catalog/stock/:id", catalog.GetProductStock)
 
+	// Public Service Catalog
+	catalogService := handlers.NewCatalogServiceHandler(db)
+	api.Get("/catalog/services", catalogService.GetCatalogServices)
+
 	// Protected User Actions (require valid JWT)
 	myOrder := handlers.NewMyOrderHandler(db)
 	userRoutes := api.Group("/user") // Group for user-centric routes
@@ -124,11 +128,21 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	od.Use(middlewares.DoACL("Update Order")).Post("/:id/process", orders.ProcessOrder)
 	od.Use(middlewares.DoACL("Read Order")).Get("/:id/processing-log", orders.GetProcessingLog)
 
+	// Service Tracking routes
+	orderServices := handlers.NewOrderServiceHandler(db)
+	ods := od.Group("/services")
+	ods.Use(middlewares.DoACL("Read Order")).Get("/:id/tracking", orderServices.GetServiceTracking)
+	ods.Use(middlewares.DoACL("Update Order")).Post("/:id/process", orderServices.AddServiceProcess)
+	ods.Use(middlewares.DoACL("Update Order")).Post("/:id/details", orderServices.UpdateServiceDetail)
+
+	// User-scoped service tracking (no specific ACL, just valid JWT)
+	userRoutes.Get("/services/:id/tracking", orderServices.GetServiceTracking)
+
 	// Order Log Status routes
 	orderLogStatus := handlers.NewOrderLogStatusHandler(db)
 	orderLogStatusGroup := api.Group("/order-log-status")
 	orderLogStatusGroup.Use(middlewares.JWTProtected())
-	orderLogStatusGroup.Use(middlewares.DoACL("Read Order")).Get("/", orderLogStatus.GetAllOrderLogStatus)
+	orderLogStatusGroup.Get("/", orderLogStatus.GetAllOrderLogStatus)
 
 	// Xendit callback (no auth required)
 	api.Post("/xendit/callback", orders.XenditCallback)
@@ -173,4 +187,70 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	analytics := api.Group("/analytics")
 	analytics.Use(middlewares.JWTProtected())
 	analytics.Use(middlewares.DoACL("Read Dashboard")).Get("/super-sales", salesAnalytics.GetSuperSales)
+	analytics.Use(middlewares.DoACL("Read Dashboard")).Get("/super-sales", salesAnalytics.GetSuperSales)
+
+	// Service Category routes
+	serviceCategories := handlers.NewServiceCategoryHandler(db)
+	serviceCategoryGroup := api.Group("/service-categories")
+	serviceCategoryGroup.Use(middlewares.JWTProtected())
+	serviceCategoryGroup.Get("/", serviceCategories.GetAllServiceCategories)
+	serviceCategoryGroup.Get("/:id", serviceCategories.GetServiceCategory)
+	serviceCategoryGroup.Use(middlewares.DoACL("Add Service")).Post("/", serviceCategories.AddServiceCategory)
+	serviceCategoryGroup.Use(middlewares.DoACL("Update Service")).Post("/:id", serviceCategories.UpdateServiceCategory)
+	serviceCategoryGroup.Use(middlewares.DoACL("Delete Service")).Delete("/:id", serviceCategories.DeleteServiceCategory)
+
+	// Service routes
+	services := handlers.NewServiceHandler(db)
+	serviceGroup := api.Group("/services")
+	serviceGroup.Use(middlewares.JWTProtected())
+	serviceGroup.Use(middlewares.DoACL("Read Service")).Get("/", services.GetAllServices)
+	serviceGroup.Use(middlewares.DoACL("Read Service")).Get("/:id", services.GetService)
+	serviceGroup.Use(middlewares.DoACL("Add Service")).Post("/", services.AddService)
+	serviceGroup.Use(middlewares.DoACL("Update Service")).Post("/:id", services.UpdateService)
+	serviceGroup.Use(middlewares.DoACL("Delete Service")).Delete("/:id", services.DeleteService)
+
+	// Raw Material routes
+	rawMaterials := handlers.NewRawMaterialHandler(db)
+	rm := api.Group("/raw-materials")
+	rm.Use(middlewares.JWTProtected())
+	rm.Use(middlewares.DoACL("Read RawMaterial")).Get("/", rawMaterials.GetAllRawMaterials)
+	rm.Use(middlewares.DoACL("Read RawMaterial")).Get("/:id", rawMaterials.GetRawMaterial)
+	rm.Use(middlewares.DoACL("Add RawMaterial")).Post("/", rawMaterials.AddRawMaterial)
+	rm.Use(middlewares.DoACL("Update RawMaterial")).Post("/:id", rawMaterials.UpdateRawMaterial)
+	rm.Use(middlewares.DoACL("Delete RawMaterial")).Delete("/:id", rawMaterials.DeleteRawMaterial)
+
+	// Raw Material Purchase routes
+	rmPurchases := handlers.NewRawMaterialPurchaseHandler(db)
+	rmp := api.Group("/raw-material-purchases")
+	rmp.Use(middlewares.JWTProtected())
+	rmp.Use(middlewares.DoACL("Read RawMaterial")).Get("/", rmPurchases.GetAllRawMaterialPurchases)
+	rmp.Use(middlewares.DoACL("Read RawMaterial")).Get("/:id", rmPurchases.GetRawMaterialPurchase)
+	rmp.Use(middlewares.DoACL("Add RawMaterial")).Post("/", rmPurchases.AddRawMaterialPurchase)
+	rmp.Use(middlewares.DoACL("Delete RawMaterial")).Delete("/:id", rmPurchases.DeleteRawMaterialPurchase)
+
+	// Raw Material Movement routes
+	rmMovements := handlers.NewRawMaterialMovementHandler(db)
+	rmm := api.Group("/raw-material-movements")
+	rmm.Use(middlewares.JWTProtected())
+	rmm.Use(middlewares.DoACL("Read RawMaterial")).Get("/", rmMovements.GetAllRawMaterialMovements)
+	rmm.Use(middlewares.DoACL("Add RawMaterial")).Post("/adjustment", rmMovements.SubmitAdjustment)
+
+	// Submit order raw material usage (under orders group)
+	od.Use(middlewares.DoACL("Update Order")).Post("/:id/raw-material-usage", rmMovements.SubmitOrderUsage)
+
+	// Journal Routes
+	journals := handlers.NewJournalHandler(db)
+	journal := api.Group("/journals")
+	journal.Use(middlewares.JWTProtected())
+	journal.Use(middlewares.DoACL("Read Journal")).Get("/", journals.GetAllJournals)
+	journal.Use(middlewares.DoACL("Add Journal")).Post("/", journals.AddJournal)
+	journal.Use(middlewares.DoACL("Add Journal")).Post("/batch", journals.BatchAddJournal)
+	journal.Use(middlewares.DoACL("Delete Journal")).Delete("/:id", journals.DeleteJournal)
+
+	// Finance Report Routes
+	financeReports := handlers.NewFinanceReportHandler(db)
+	finance := api.Group("/finance")
+	finance.Use(middlewares.JWTProtected())
+	finance.Use(middlewares.DoACL("Read Finance")).Get("/summary", financeReports.GetSummaryReport)
+	finance.Use(middlewares.DoACL("Read Finance")).Get("/export-pdf", financeReports.ExportReportPDF)
 }
