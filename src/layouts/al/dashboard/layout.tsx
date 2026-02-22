@@ -76,22 +76,18 @@ export function DashboardLayout({
    const isNavVertical = isNavMini || settings.state.navLayout === 'vertical';
 
    const canDisplayItemByRole = (allowedRoles: NavItemProps['allowedRoles']): boolean => {
-      // If allowedRoles is a string array (permissions check)
-      if (Array.isArray(allowedRoles)) {
-         // Check if user has at least one of the required permissions
-         const userPermissions = user?.permissions || authData?.permissions || [];
+      if (!allowedRoles || allowedRoles.length === 0) return false;
 
-         console.log('🔍 Check Permissions:', {
-            required: allowedRoles,
-            userHas: userPermissions,
-            match: allowedRoles.some((permission) => userPermissions.includes(permission)),
-         });
+      const userRole = user?.role?.name;
+      const userPermissions = user?.permissions || authData?.permissions || [];
 
-         return allowedRoles.some((permission) => userPermissions.includes(permission));
-      }
+      // Check if user has ANY of the required roles or permissions
+      const hasMatch = allowedRoles.some(
+         (item) => (userRole && item === userRole) || userPermissions.includes(item)
+      );
 
-      // Original role check
-      return user?.role?.name ? !allowedRoles?.includes(user.role.name) : false;
+      // Return TRUE if we should HIDE the item (i.e., user DOES NOT have the role or permission)
+      return !hasMatch;
    };
 
    const [logoUrl, setLogoUrl] = useState<string>('');
