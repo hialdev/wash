@@ -175,6 +175,7 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
                   </Typography>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                     {/* Products */}
                      {order.order_products?.map((item) => {
                         const imageUrl = item.product?.image
                            ? `${process.env.NEXT_PUBLIC_API_HOST}/${item.product.image}`
@@ -189,7 +190,7 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
 
                         return (
                            <Box
-                              key={item.id}
+                              key={`prod-${item.id}`}
                               sx={{
                                  display: 'flex',
                                  gap: 2,
@@ -248,6 +249,78 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
                               {/* Subtotal */}
                               <Box sx={{ textAlign: 'right' }}>
                                  <Typography variant="subtitle2" color="primary.main">
+                                    {fCurrency(subtotal)}
+                                 </Typography>
+                              </Box>
+                           </Box>
+                        );
+                     })}
+
+                     {/* Divider if both exist */}
+                     {(order.order_products?.length ?? 0) > 0 &&
+                        (order.order_services?.length ?? 0) > 0 && (
+                           <Divider sx={{ borderStyle: 'dashed' }} />
+                        )}
+
+                     {/* Services */}
+                     {order.order_services?.map((item) => {
+                        const subtotal = (item.price_at_order || 0) * (item.qty || 0);
+
+                        return (
+                           <Box
+                              key={`serv-${item.id}`}
+                              sx={{
+                                 display: 'flex',
+                                 gap: 2,
+                                 p: 2,
+                                 border: 1,
+                                 borderColor: 'divider',
+                                 borderRadius: 1,
+                              }}
+                           >
+                              {/* Service Icon/Image Placeholder */}
+                              <Box
+                                 sx={{
+                                    width: 80,
+                                    height: 80,
+                                    borderRadius: 1,
+                                    bgcolor: 'background.neutral',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                 }}
+                              >
+                                 <Iconify
+                                    icon="solar:washing-machine-bold-duotone"
+                                    width={40}
+                                    sx={{ color: 'text.disabled' }}
+                                 />
+                              </Box>
+
+                              {/* Service Info */}
+                              <Box sx={{ flexGrow: 1 }}>
+                                 <Typography variant="subtitle2" gutterBottom>
+                                    {item.service?.name} (Service)
+                                 </Typography>
+                                 <Typography variant="body2" color="text.secondary">
+                                    {fCurrency(item.price_at_order || 0)} / {item.service?.unit} ×{' '}
+                                    {item.qty}
+                                 </Typography>
+                                 {item.notes && (
+                                    <Typography
+                                       variant="caption"
+                                       color="text.secondary"
+                                       display="block"
+                                       sx={{ mt: 0.5 }}
+                                    >
+                                       Note: {item.notes}
+                                    </Typography>
+                                 )}
+                              </Box>
+
+                              {/* Subtotal */}
+                              <Box sx={{ textAlign: 'right' }}>
+                                 <Typography variant="subtitle2" color="secondary.main">
                                     {fCurrency(subtotal)}
                                  </Typography>
                               </Box>

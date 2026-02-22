@@ -112,11 +112,40 @@ export const paths = {
          root: `${ROOTS.DASHBOARD}/stock-movements`,
       },
 
+      // Raw Materials (COGS)
+      rawMaterials: {
+         root: `${ROOTS.DASHBOARD}/raw-materials`,
+         create: `${ROOTS.DASHBOARD}/raw-materials/create`,
+         edit: (id: string) => `${ROOTS.DASHBOARD}/raw-materials/${id}/edit`,
+      },
+      rawMaterialPurchases: {
+         root: `${ROOTS.DASHBOARD}/raw-material-purchases`,
+         create: `${ROOTS.DASHBOARD}/raw-material-purchases/create`,
+      },
+      rawMaterialMovements: {
+         root: `${ROOTS.DASHBOARD}/raw-material-movements`,
+         create: `${ROOTS.DASHBOARD}/raw-material-movements/create`,
+      },
+
+      // Finance
+      finance: {
+         root: `${ROOTS.DASHBOARD}/finance`,
+         journal: {
+            root: `${ROOTS.DASHBOARD}/finance/journal`,
+            new: `${ROOTS.DASHBOARD}/finance/journal/new`,
+            edit: (id: string) => `${ROOTS.DASHBOARD}/finance/journal/${id}/edit`,
+         },
+         reports: `${ROOTS.DASHBOARD}/finance/reports`,
+      },
+
       // E-Commerce - Sales
       orders: {
          root: `${ROOTS.DASHBOARD}/orders`,
          detail: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}`,
          process: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}/process`,
+         serviceTracking: (id: string, serviceId: string) =>
+            `${ROOTS.DASHBOARD}/orders/${id}/service/${serviceId}`,
+         usedRawMaterial: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}/used-raw-material`,
       },
 
       // E-Commerce - Dashboard
@@ -137,6 +166,7 @@ export const paths = {
          favorite: `${ROOTS.DASHBOARD}/favorite`,
          checkout: `${ROOTS.DASHBOARD}/checkout`,
          payment: (orderId: string) => `${ROOTS.DASHBOARD}/payment/${orderId}`,
+         detail: (id: string) => `${ROOTS.DASHBOARD}/my-orders/${id}`,
       },
 
       event_plans: {
@@ -212,6 +242,13 @@ export const paths = {
             details: `${ROOTS.DASHBOARD}/product/${MOCK_ID}`,
             edit: `${ROOTS.DASHBOARD}/product/${MOCK_ID}/edit`,
          },
+      },
+      service: {
+         root: `${ROOTS.DASHBOARD}/services`,
+         new: `${ROOTS.DASHBOARD}/services/new`,
+         list: `${ROOTS.DASHBOARD}/services`,
+         details: (id: string) => `${ROOTS.DASHBOARD}/services/${id}`,
+         edit: (id: string) => `${ROOTS.DASHBOARD}/services/${id}/edit`,
       },
       invoice: {
          root: `${ROOTS.DASHBOARD}/invoice`,

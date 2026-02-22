@@ -22,6 +22,8 @@ import TimelineDot from '@mui/lab/TimelineDot';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 
 import { Iconify } from 'src/components/iconify';
+import { RouterLink } from 'src/routes/components';
+import { paths } from 'src/routes/al/paths';
 import { fCurrency } from 'src/utils/format-number';
 import { CONFIG } from 'src/global-config';
 import useOrderLogStatusStore from 'src/stores/order-log-status';
@@ -226,6 +228,71 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
                      })}
                   </Box>
                </Box>
+
+               {/* Services */}
+               {order.order_services && order.order_services.length > 0 && (
+                  <Box>
+                     <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                        Services
+                     </Typography>
+                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {order.order_services.map((item) => (
+                           <Card key={item.id} variant="outlined">
+                              <CardContent sx={{ py: 1.5 }}>
+                                 <Box
+                                    sx={{
+                                       display: 'flex',
+                                       justifyContent: 'space-between',
+                                       alignItems: 'start',
+                                    }}
+                                 >
+                                    <Box sx={{ flex: 1 }}>
+                                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                          {item.service?.name} (Service)
+                                       </Typography>
+                                       {item.notes && (
+                                          <Typography
+                                             variant="caption"
+                                             color="text.secondary"
+                                             display="block"
+                                          >
+                                             Note: {item.notes}
+                                          </Typography>
+                                       )}
+                                       <Button
+                                          size="small"
+                                          variant="outlined"
+                                          startIcon={<Iconify icon="mdi:timeline-clock-outline" />}
+                                          component={RouterLink}
+                                          href={paths.dashboard.order.serviceTracking(
+                                             order.id,
+                                             item.service_id
+                                          )}
+                                          sx={{ mt: 1 }}
+                                       >
+                                          Track Process
+                                       </Button>
+                                    </Box>
+                                    <Box sx={{ textAlign: 'right' }}>
+                                       <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          display="block"
+                                       >
+                                          {fCurrency(item.price_at_order || 0)} /{' '}
+                                          {item.service?.unit} × {item.qty}
+                                       </Typography>
+                                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                          {fCurrency((item.price_at_order || 0) * (item.qty || 0))}
+                                       </Typography>
+                                    </Box>
+                                 </Box>
+                              </CardContent>
+                           </Card>
+                        ))}
+                     </Box>
+                  </Box>
+               )}
 
                {/* Timeline */}
                <Box>

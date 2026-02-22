@@ -179,7 +179,38 @@ export function ProcessingLogModal({ open, onClose, order }: Props) {
                         <Divider sx={{ my: 2 }} />
                         <Stack spacing={2}>
                            {details.map((item: any, index: number) => {
-                              // Fallback: get product title from log.order.order_products if not in details
+                              const isService = !!item.service_name;
+
+                              // Handle Service
+                              if (isService) {
+                                 return (
+                                    <Box key={index}>
+                                       <Stack
+                                          direction="row"
+                                          alignItems="center"
+                                          spacing={1}
+                                          sx={{ mb: 1.5 }}
+                                       >
+                                          <Chip
+                                             label="Service"
+                                             size="small"
+                                             color="info"
+                                             variant="soft"
+                                          />
+                                          <Box>
+                                             <Typography variant="body2" fontWeight={600}>
+                                                {item.service_name}
+                                             </Typography>
+                                             <Typography variant="caption" color="text.secondary">
+                                                Qty: {item.service_qty}
+                                             </Typography>
+                                          </Box>
+                                       </Stack>
+                                    </Box>
+                                 );
+                              }
+
+                              // Handle Product
                               let productTitle = item.product_title || 'Unknown Product';
                               if (!item.product_title && log.order?.order_products) {
                                  const orderProduct = log.order.order_products.find(
@@ -199,7 +230,7 @@ export function ProcessingLogModal({ open, onClose, order }: Props) {
                                        sx={{ mb: 1.5 }}
                                     >
                                        <Chip
-                                          label={`Product ${index + 1}`}
+                                          label={`Product`}
                                           size="small"
                                           color="primary"
                                           variant="soft"

@@ -1,0 +1,4 @@
+export * from './service-list-view';
+export * from './service-edit-view';
+export * from './service-create-view';
+export * from './service-catalog-view';

@@ -1,5 +1,6 @@
 import * as z from 'zod';
 import type { Product } from './product';
+import type { IService } from './service';
 
 // Order Product Schema
 export const OrderProductSchema = z.object({
@@ -34,6 +35,19 @@ export interface OrderProduct {
    measurement_unit?: string; // For individual tracking products
 }
 
+export interface OrderService {
+   id?: string;
+   created_at?: string;
+   updated_at?: string;
+   order_id?: string;
+   service_id?: string;
+   service?: IService;
+   price_at_order?: number;
+   qty?: number;
+   subtotal?: number;
+   notes?: string;
+}
+
 export interface Order {
    id?: string;
    created_at?: string;
@@ -59,5 +73,6 @@ export interface Order {
    xendit_invoice_url?: string;
    payment_proof?: string;
    order_products?: OrderProduct[];
+   order_services?: OrderService[];
    order_logs?: any[];
 }

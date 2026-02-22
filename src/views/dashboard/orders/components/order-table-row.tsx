@@ -2,6 +2,7 @@ import type { Order } from 'src/types/order';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { RouterLink } from 'src/routes/components';
 import dayjs from 'dayjs';
 
 import Box from '@mui/material/Box';
@@ -37,7 +38,7 @@ type Props = {
 export function OrderTableRow({ row, onActionSuccess }: Props) {
    const router = useRouter();
    const popover = usePopover();
-   const [openDetailModal, setOpenDetailModal] = useState(false);
+   // const [openDetailModal, setOpenDetailModal] = useState(false);
    const [openRefundModal, setOpenRefundModal] = useState(false);
    const [openCancelModal, setOpenCancelModal] = useState(false);
    const [openRestockModal, setOpenRestockModal] = useState(false);
@@ -109,7 +110,11 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
             </TableCell>
 
             <TableCell align="right">
-               <IconButton onClick={() => setOpenDetailModal(true)}>
+               <IconButton
+                  component={RouterLink}
+                  href={paths.dashboard.orders.detail(row.id || '')}
+                  color="default"
+               >
                   <Iconify icon="solar:eye-bold" />
                </IconButton>
 
@@ -150,6 +155,16 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
                      Process Order
                   </MenuItem>
                )}
+
+               <MenuItem
+                  onClick={() => {
+                     router.push(paths.dashboard.orders.usedRawMaterial(row.id || ''));
+                     popover.onClose();
+                  }}
+               >
+                  <Iconify icon="solar:test-tube-bold" />
+                  Hitung Bahan Baku
+               </MenuItem>
 
                {canRefund && (
                   <MenuItem
@@ -202,11 +217,11 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
             </MenuList>
          </CustomPopover>
 
-         <OrderDetailModal
+         {/* <OrderDetailModal
             open={openDetailModal}
             onClose={() => setOpenDetailModal(false)}
             order={row}
-         />
+         /> */}
 
          {canRefund && (
             <RefundModal

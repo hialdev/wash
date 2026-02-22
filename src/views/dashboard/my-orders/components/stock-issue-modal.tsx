@@ -108,6 +108,7 @@ export function StockIssueModal({ open, onClose, order, onRefund, onWaitRestock 
                   </Typography>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                     {/* Products */}
                      {order.order_products?.map((item) => {
                         // Check if this product has stock issue
                         const hasStockIssue = stockErrors.some((error) =>
@@ -128,7 +129,7 @@ export function StockIssueModal({ open, onClose, order, onRefund, onWaitRestock 
 
                         return (
                            <Card
-                              key={item.id}
+                              key={`prod-${item.id}`}
                               sx={{
                                  border: hasStockIssue ? 2 : 1,
                                  borderColor: hasStockIssue ? 'error.main' : 'divider',
@@ -175,6 +176,37 @@ export function StockIssueModal({ open, onClose, order, onRefund, onWaitRestock 
                            </Card>
                         );
                      })}
+
+                     {/* Services */}
+                     {order.order_services?.map((item) => (
+                        <Card
+                           key={`serv-${item.id}`}
+                           sx={{
+                              border: 1,
+                              borderColor: 'divider',
+                              bgcolor: 'background.paper',
+                           }}
+                        >
+                           <CardContent>
+                              <Box
+                                 sx={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'start',
+                                 }}
+                              >
+                                 <Box sx={{ flexGrow: 1 }}>
+                                    <Typography variant="subtitle1" gutterBottom>
+                                       {item.service?.name} (Service)
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                       {fCurrency(item.price_at_order || 0)} × {item.qty}
+                                    </Typography>
+                                 </Box>
+                              </Box>
+                           </CardContent>
+                        </Card>
+                     ))}
                   </Box>
                </Box>
 

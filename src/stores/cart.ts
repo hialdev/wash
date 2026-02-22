@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { protectedApi } from '../lib/al/axios';
 import type { Product } from '../types/product';
+import type { IService } from '../types/service';
+
+// ─── Product Cart ───────────────────────────────────────────────────────────
 
 export interface CartItem {
    product: Product;
@@ -9,6 +12,16 @@ export interface CartItem {
    requested_length?: number; // For individual tracking products
    measurement_unit?: string; // For individual tracking products
 }
+
+// ─── Service Cart ───────────────────────────────────────────────────────────
+
+export interface ServiceCartItem {
+   service: IService;
+   qty: number; // bisa desimal, e.g. 0.5 (setengah unit)
+   notes?: string;
+}
+
+// ─── Stock Validation ────────────────────────────────────────────────────────
 
 export interface StockValidationResult {
    productId: string;
@@ -19,16 +32,40 @@ export interface StockValidationResult {
    productTitle?: string;
 }
 
+// ─── Store Interface ─────────────────────────────────────────────────────────
+
 interface CartState {
+   // Product items
    items: CartItem[];
 
+   // Service items
+   serviceItems: ServiceCartItem[];
+
+   // Product actions
    addItem: (product: Product, qty: number, requestedLength?: number) => void;
    removeItem: (productId: string, requestedLength?: number) => void;
    updateQty: (productId: string, qty: number, requestedLength?: number) => void;
+
+   // Service actions
+   addServiceItem: (service: IService, qty: number, notes?: string) => void;
+   removeServiceItem: (serviceId: string) => void;
+   updateServiceQty: (serviceId: string, qty: number) => void;
+
+   // Shared actions
    clearCart: () => void;
+   clearProductCart: () => void;
+   clearServiceCart: () => void;
+
+   // Getters
    getTotalItems: () => number;
    getTotalPrice: () => number;
    getItemCount: () => number;
+   getProductItemCount: () => number;
+   getServiceItemCount: () => number;
+   getProductTotalPrice: () => number;
+   getServiceTotalPrice: () => number;
+
+   // Stock validation (products only — services have no stock constraint)
    validateStock: (
       productId: string,
       qty: number,
@@ -41,6 +78,9 @@ const useCartStore = create<CartState>()(
    persist(
       (set, get) => ({
          items: [],
+         serviceItems: [],
+
+         // ─── Product actions ─────────────────────────────────────────────────
 
          addItem: (product, qty, requestedLength) => {
             const { items } = get();
@@ -57,7 +97,6 @@ const useCartStore = create<CartState>()(
             });
 
             if (existingItem) {
-               // Update quantity if item already exists
                set({
                   items: items.map((item) => {
                      const isMatch =
@@ -66,19 +105,10 @@ const useCartStore = create<CartState>()(
                              item.requested_length === requestedLength
                            : item.product.id === product.id;
 
-                     return isMatch
-                        ? {
-                             ...item,
-                             qty:
-                                product.tracking_mode === 'individual'
-                                   ? item.qty + qty
-                                   : item.qty + qty,
-                          }
-                        : item;
+                     return isMatch ? { ...item, qty: item.qty + qty } : item;
                   }),
                });
             } else {
-               // Add new item
                set({
                   items: [
                      ...items,
@@ -96,13 +126,11 @@ const useCartStore = create<CartState>()(
          removeItem: (productId, requestedLength) => {
             set((state) => ({
                items: state.items.filter((item) => {
-                  // For individual tracking, match both productId and requestedLength
                   if (requestedLength !== undefined) {
                      return !(
                         item.product.id === productId && item.requested_length === requestedLength
                      );
                   }
-                  // For simple tracking, match only productId
                   return item.product.id !== productId;
                }),
             }));
@@ -116,29 +144,89 @@ const useCartStore = create<CartState>()(
 
             set((state) => ({
                items: state.items.map((item) => {
-                  // For individual tracking, match both productId and requestedLength
                   if (requestedLength !== undefined) {
                      return item.product.id === productId &&
                         item.requested_length === requestedLength
                         ? { ...item, qty }
                         : item;
                   }
-                  // For simple tracking, match only productId
                   return item.product.id === productId ? { ...item, qty } : item;
                }),
             }));
          },
 
+         // ─── Service actions ──────────────────────────────────────────────────
+
+         addServiceItem: (service, qty, notes) => {
+            const { serviceItems } = get();
+            const existing = serviceItems.find((i) => i.service.id === service.id);
+
+            if (existing) {
+               set({
+                  serviceItems: serviceItems.map((i) =>
+                     i.service.id === service.id ? { ...i, qty: i.qty + qty, notes } : i
+                  ),
+               });
+            } else {
+               set({ serviceItems: [...serviceItems, { service, qty, notes }] });
+            }
+         },
+
+         removeServiceItem: (serviceId) => {
+            set((state) => ({
+               serviceItems: state.serviceItems.filter((i) => i.service.id !== serviceId),
+            }));
+         },
+
+         updateServiceQty: (serviceId, qty) => {
+            if (qty <= 0) {
+               get().removeServiceItem(serviceId);
+               return;
+            }
+            set((state) => ({
+               serviceItems: state.serviceItems.map((i) =>
+                  i.service.id === serviceId ? { ...i, qty } : i
+               ),
+            }));
+         },
+
+         // ─── Shared actions ───────────────────────────────────────────────────
+
          clearCart: () => {
+            set({ items: [], serviceItems: [] });
+         },
+
+         clearProductCart: () => {
             set({ items: [] });
          },
 
-         getTotalItems: () => {
-            const { items } = get();
-            return items.reduce((total, item) => total + item.qty, 0);
+         clearServiceCart: () => {
+            set({ serviceItems: [] });
          },
 
-         getTotalPrice: () => {
+         // ─── Getters ──────────────────────────────────────────────────────────
+
+         getTotalItems: () => {
+            const { items, serviceItems } = get();
+            const productQty = items.reduce((t, i) => t + i.qty, 0);
+            const serviceQty = serviceItems.reduce((t, i) => t + i.qty, 0);
+            return productQty + serviceQty;
+         },
+
+         getItemCount: () => {
+            const { items, serviceItems } = get();
+            return items.length + serviceItems.length;
+         },
+
+         getProductItemCount: () => {
+            return get().items.reduce((t, i) => t + i.qty, 0);
+         },
+
+         getServiceItemCount: () => {
+            return get().serviceItems.reduce((t, i) => t + i.qty, 0);
+         },
+
+         getProductTotalPrice: () => {
             const { items } = get();
             return items.reduce((total, item) => {
                const price = item.product.sale_price || 0;
@@ -149,10 +237,18 @@ const useCartStore = create<CartState>()(
             }, 0);
          },
 
-         getItemCount: () => {
-            const { items } = get();
-            return items.length;
+         getServiceTotalPrice: () => {
+            return get().serviceItems.reduce(
+               (total, item) => total + (item.service.price || 0) * item.qty,
+               0
+            );
          },
+
+         getTotalPrice: () => {
+            return get().getProductTotalPrice() + get().getServiceTotalPrice();
+         },
+
+         // ─── Stock validation ─────────────────────────────────────────────────
 
          validateStock: async (productId, qty, requestedLength) => {
             try {
@@ -160,7 +256,6 @@ const useCartStore = create<CartState>()(
                if (response.data.success && response.data.data) {
                   const product = response.data.data;
 
-                  // For individual tracking, check inventory items
                   if (product.tracking_mode === 'individual') {
                      if (!requestedLength) {
                         return {
@@ -173,26 +268,22 @@ const useCartStore = create<CartState>()(
                         };
                      }
 
-                     // Filter inventory items that can fulfill the requested length
                      const availableItems = (product.inventory_items || []).filter(
                         (item: any) =>
                            item.status === 'available' &&
                            (item.remaining_length || 0) >= requestedLength
                      );
 
-                     const availableQty = availableItems.length;
-
                      return {
                         productId,
                         requestedQty: qty,
                         requestedLength,
-                        availableStock: availableQty,
-                        isValid: qty <= availableQty,
+                        availableStock: availableItems.length,
+                        isValid: qty <= availableItems.length,
                         productTitle: product.title,
                      };
                   }
 
-                  // For simple tracking, check product stock
                   const availableStock = product.stock || 0;
                   return {
                      productId,

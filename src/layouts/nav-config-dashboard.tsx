@@ -42,6 +42,7 @@ const ICONS = {
    ecommerce: icon('ic-ecommerce'),
    analytics: icon('ic-analytics'),
    dashboard: icon('ic-dashboard'),
+   service: icon('ic-label'),
 };
 
 // ----------------------------------------------------------------------
@@ -105,6 +106,15 @@ export const navData: NavSectionProps['data'] = [
                { title: 'Details', path: paths.dashboard.product.demo.details },
                { title: 'Create', path: paths.dashboard.product.new },
                { title: 'Edit', path: paths.dashboard.product.demo.edit },
+            ],
+         },
+         {
+            title: 'Service',
+            path: paths.dashboard.service.root,
+            icon: ICONS.service,
+            children: [
+               { title: 'List', path: paths.dashboard.service.root },
+               { title: 'Create', path: paths.dashboard.service.new },
             ],
          },
          {

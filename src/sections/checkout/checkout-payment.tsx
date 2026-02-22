@@ -1,7 +1,7 @@
 import type {
-  ICheckoutCardOption,
-  ICheckoutPaymentOption,
-  ICheckoutDeliveryOption,
+   ICheckoutCardOption,
+   ICheckoutPaymentOption,
+   ICheckoutDeliveryOption,
 } from 'src/types/checkout';
 
 import * as z from 'zod';
@@ -19,33 +19,35 @@ import { CheckoutSummary } from './checkout-summary';
 import { CheckoutDelivery } from './checkout-delivery';
 import { CheckoutBillingInfo } from './checkout-billing-info';
 import { CheckoutPaymentMethods } from './checkout-payment-methods';
+import { createOrder } from 'src/actions/order';
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
 const DELIVERY_OPTIONS: ICheckoutDeliveryOption[] = [
-  { value: 0, label: 'Free', description: '5-7 days delivery' },
-  { value: 10, label: 'Standard', description: '3-5 days delivery' },
-  { value: 20, label: 'Express', description: '2-3 days delivery' },
+   { value: 0, label: 'Free', description: '5-7 days delivery' },
+   { value: 10, label: 'Standard', description: '3-5 days delivery' },
+   { value: 20, label: 'Express', description: '2-3 days delivery' },
 ];
 
 const PAYMENT_OPTIONS: ICheckoutPaymentOption[] = [
-  {
-    value: 'paypal',
-    label: 'Pay with Paypal',
-    description: 'You will be redirected to PayPal website to complete your purchase securely.',
-  },
-  {
-    value: 'creditcard',
-    label: 'Credit / Debit card',
-    description: 'We support Mastercard, Visa, Discover and Stripe.',
-  },
-  { value: 'cash', label: 'Cash', description: 'Pay with cash when your order is delivered.' },
+   {
+      value: 'paypal',
+      label: 'Pay with Paypal',
+      description: 'You will be redirected to PayPal website to complete your purchase securely.',
+   },
+   {
+      value: 'creditcard',
+      label: 'Credit / Debit card',
+      description: 'We support Mastercard, Visa, Discover and Stripe.',
+   },
+   { value: 'cash', label: 'Cash', description: 'Pay with cash when your order is delivered.' },
 ];
 
 const CARD_OPTIONS: ICheckoutCardOption[] = [
-  { value: 'visa1', label: '**** **** **** 1212 - Jimmy Holland' },
-  { value: 'visa2', label: '**** **** **** 2424 - Shawn Stokes' },
-  { value: 'mastercard', label: '**** **** **** 4545 - Cole Armstrong' },
+   { value: 'visa1', label: '**** **** **** 1212 - Jimmy Holland' },
+   { value: 'visa2', label: '**** **** **** 2424 - Shawn Stokes' },
+   { value: 'mastercard', label: '**** **** **** 4545 - Cole Armstrong' },
 ];
 
 // ----------------------------------------------------------------------
@@ -53,87 +55,129 @@ const CARD_OPTIONS: ICheckoutCardOption[] = [
 export type PaymentSchemaType = z.infer<typeof PaymentSchema>;
 
 export const PaymentSchema = z.object({
-  payment: z.string().min(1, { error: 'Payment is required!' }),
-  // Not required
-  delivery: z.number(),
+   payment: z.string().min(1, { error: 'Payment is required!' }),
+   // Not required
+   delivery: z.number(),
 });
 
 // ----------------------------------------------------------------------
 
 export function CheckoutPayment() {
-  const {
-    loading,
-    onResetCart,
-    onChangeStep,
-    onApplyShipping,
-    state: checkoutState,
-  } = useCheckoutContext();
+   const {
+      loading,
+      onResetCart,
+      onChangeStep,
+      onApplyShipping,
+      state: checkoutState,
+   } = useCheckoutContext();
 
-  const defaultValues: PaymentSchemaType = {
-    delivery: checkoutState.shipping,
-    payment: '',
-  };
+   const { user } = useAuthContext();
 
-  const methods = useForm({
-    resolver: zodResolver(PaymentSchema),
-    defaultValues,
-  });
+   const defaultValues: PaymentSchemaType = {
+      delivery: checkoutState.shipping,
+      payment: '',
+   };
 
-  const {
-    handleSubmit,
-    formState: { isSubmitting },
-  } = methods;
+   const methods = useForm({
+      resolver: zodResolver(PaymentSchema),
+      defaultValues,
+   });
 
-  const onSubmit = handleSubmit(async (data) => {
-    try {
-      onResetCart();
-      onChangeStep('next');
-      console.info('DATA', data);
-    } catch (error) {
-      console.error(error);
-    }
-  });
+   const {
+      handleSubmit,
+      formState: { isSubmitting },
+   } = methods;
 
-  return (
-    <Form methods={methods} onSubmit={onSubmit}>
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 8 }}>
-          <CheckoutDelivery
-            name="delivery"
-            onApplyShipping={onApplyShipping}
-            options={DELIVERY_OPTIONS}
-          />
+   const onSubmit = handleSubmit(async (data) => {
+      try {
+         const { billing } = checkoutState;
+         if (!billing) {
+            console.error('Billing info missing');
+            return;
+         }
 
-          <CheckoutPaymentMethods
-            name="payment"
-            options={{ cards: CARD_OPTIONS, payments: PAYMENT_OPTIONS }}
-            sx={{ my: 3 }}
-          />
+         const productItems = checkoutState.items.filter(
+            (item) => item.type === 'product' || !item.type
+         );
+         const serviceItems = checkoutState.items.filter((item) => item.type === 'service');
 
-          <Button
-            size="small"
-            color="inherit"
-            onClick={() => onChangeStep('back')}
-            startIcon={<Iconify icon="eva:arrow-ios-back-fill" />}
-          >
-            Back
-          </Button>
-        </Grid>
+         const payload = {
+            user_id: user?.id,
+            address_receiver: billing.fullAddress,
+            phone_receiver: billing.phoneNumber,
+            notes: '',
+            products: productItems.map((item) => ({
+               product_id: item.id,
+               qty: item.quantity,
+               requested_length: 0,
+               measurement_unit: 'piece',
+            })),
+            services: serviceItems.map((item) => ({
+               service_id: item.id,
+               qty: item.quantity,
+               notes: '',
+            })),
+         };
 
-        <Grid size={{ xs: 12, md: 4 }}>
-          <CheckoutBillingInfo
-            loading={loading}
-            onChangeStep={onChangeStep}
-            checkoutState={checkoutState}
-          />
+         await createOrder(payload);
 
-          <CheckoutSummary checkoutState={checkoutState} onEdit={() => onChangeStep('go', 0)} />
+         onResetCart();
+         onChangeStep('next');
+         console.info('DATA', payload);
+      } catch (error) {
+         console.error(error);
+      }
+   });
 
-          <Button fullWidth size="large" type="submit" variant="contained" loading={isSubmitting}>
-            Complete order
-          </Button>
-        </Grid>
-      </Grid>
-    </Form>
-  );
+   return (
+      <Form methods={methods} onSubmit={onSubmit}>
+         <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 8 }}>
+               <CheckoutDelivery
+                  name="delivery"
+                  onApplyShipping={onApplyShipping}
+                  options={DELIVERY_OPTIONS}
+               />
+
+               <CheckoutPaymentMethods
+                  name="payment"
+                  options={{ cards: CARD_OPTIONS, payments: PAYMENT_OPTIONS }}
+                  sx={{ my: 3 }}
+               />
+
+               <Button
+                  size="small"
+                  color="inherit"
+                  onClick={() => onChangeStep('back')}
+                  startIcon={<Iconify icon="eva:arrow-ios-back-fill" />}
+               >
+                  Back
+               </Button>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 4 }}>
+               <CheckoutBillingInfo
+                  loading={loading}
+                  onChangeStep={onChangeStep}
+                  checkoutState={checkoutState}
+               />
+
+               <CheckoutSummary
+                  checkoutState={checkoutState}
+                  onEdit={() => onChangeStep('go', 0)}
+               />
+
+               <Button
+                  fullWidth
+                  size="large"
+                  type="submit"
+                  variant="contained"
+                  loading={isSubmitting}
+               >
+                  Complete order
+               </Button>
+            </Grid>
+         </Grid>
+      </Form>
+   );
 }

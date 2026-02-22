@@ -37,7 +37,7 @@ export type ConfigValue = {
 // ----------------------------------------------------------------------
 
 export const CONFIG: ConfigValue = {
-   appName: 'Sajjad Zamzami - Admin',
+   appName: 'Washer - Admin',
    apiHost: 'localhost',
    apiPort: '1202',
    apiHostUrl: process.env.NEXT_PUBLIC_API_HOST ?? '',

@@ -7,10 +7,10 @@ import { CONFIG } from 'src/global-config';
 // ----------------------------------------------------------------------
 
 const axiosInstance = axios.create({
-  baseURL: CONFIG.serverUrl,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+   baseURL: CONFIG.serverUrl,
+   headers: {
+      'Content-Type': 'application/json',
+   },
 });
 
 /**
@@ -27,12 +27,12 @@ const axiosInstance = axios.create({
 */
 
 axiosInstance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const message = error?.response?.data?.message || error?.message || 'Something went wrong!';
-    console.error('Axios error:', message);
-    return Promise.reject(new Error(message));
-  }
+   (response) => response,
+   (error) => {
+      const message = error?.response?.data?.message || error?.message || 'Something went wrong!';
+      console.error('Axios error:', message);
+      return Promise.reject(new Error(message));
+   }
 );
 
 export default axiosInstance;
@@ -40,45 +40,56 @@ export default axiosInstance;
 // ----------------------------------------------------------------------
 
 export const fetcher = async <T = unknown>(
-  args: string | [string, AxiosRequestConfig]
+   args: string | [string, AxiosRequestConfig]
 ): Promise<T> => {
-  try {
-    const [url, config] = Array.isArray(args) ? args : [args, {}];
+   try {
+      const [url, config] = Array.isArray(args) ? args : [args, {}];
 
-    const res = await axiosInstance.get<T>(url, config);
+      const res = await axiosInstance.get<T>(url, config);
 
-    return res.data;
-  } catch (error) {
-    console.error('Fetcher failed:', error);
-    throw error;
-  }
+      return res.data;
+   } catch (error) {
+      console.error('Fetcher failed:', error);
+      throw error;
+   }
 };
 
 // ----------------------------------------------------------------------
 
 export const endpoints = {
-  chat: '/api/chat',
-  kanban: '/api/kanban',
-  calendar: '/api/calendar',
-  auth: {
-    me: '/api/auth/me',
-    signIn: '/api/auth/sign-in',
-    signUp: '/api/auth/sign-up',
-  },
-  mail: {
-    list: '/api/mail/list',
-    details: '/api/mail/details',
-    labels: '/api/mail/labels',
-  },
-  post: {
-    list: '/api/post/list',
-    details: '/api/post/details',
-    latest: '/api/post/latest',
-    search: '/api/post/search',
-  },
-  product: {
-    list: '/api/product/list',
-    details: '/api/product/details',
-    search: '/api/product/search',
-  },
+   chat: '/chat',
+   kanban: '/kanban',
+   calendar: '/calendar',
+   auth: {
+      me: '/auth/me',
+      signIn: '/auth/sign-in',
+      signUp: '/auth/sign-up',
+   },
+   mail: {
+      list: '/mail/list',
+      details: '/mail/details',
+      labels: '/mail/labels',
+   },
+   post: {
+      list: '/post/list',
+      details: '/post/details',
+      latest: '/post/latest',
+      search: '/post/search',
+   },
+   product: {
+      list: '/product/list',
+      details: '/product/details',
+      search: '/product/search',
+   },
+   service: {
+      list: '/services',
+      details: '/services', // for GET /api/services/:id
+      catalog: '/catalog/services',
+   },
+   order: {
+      create: '/order',
+   },
+   orders: {
+      list: '/orders',
+   },
 } as const;

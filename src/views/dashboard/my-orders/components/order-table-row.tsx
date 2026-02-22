@@ -4,18 +4,19 @@ import { useState } from 'react';
 import dayjs from 'dayjs';
 import { toast } from 'sonner';
 
-import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
+import { useRouter } from 'src/routes/hooks';
+import { paths } from 'src/routes/al/paths';
+
 import { Iconify } from 'src/components/iconify';
 import { fCurrency } from 'src/utils/format-number';
 import useOrderStore from 'src/stores/order';
 
-import { OrderDetailModal } from './order-detail-modal';
 import { StockIssueModal } from './stock-issue-modal';
 
 // ----------------------------------------------------------------------
@@ -26,7 +27,7 @@ type Props = {
 };
 
 export function OrderTableRow({ row, onActionSuccess }: Props) {
-   const [openDetailModal, setOpenDetailModal] = useState(false);
+   const router = useRouter();
    const [openStockIssueModal, setOpenStockIssueModal] = useState(false);
 
    const { requestRefund, waitRestock } = useOrderStore();
@@ -57,17 +58,13 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
       canceled: 'Canceled',
    } as const;
 
-   const handleOpenModal = () => {
+   const handleViewDetails = () => {
       // If stock_issue, open stock issue modal instead
       if (row.status === 'stock_issue') {
          setOpenStockIssueModal(true);
       } else {
-         setOpenDetailModal(true);
+         router.push(paths.dashboard.customer_orders.detail(row.id!));
       }
-   };
-
-   const handleCloseDetailModal = () => {
-      setOpenDetailModal(false);
    };
 
    const handleCloseStockIssueModal = () => {
@@ -141,13 +138,11 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
             </TableCell>
 
             <TableCell align="right">
-               <IconButton onClick={handleOpenModal}>
+               <IconButton onClick={handleViewDetails}>
                   <Iconify icon="solar:eye-bold" />
                </IconButton>
             </TableCell>
          </TableRow>
-
-         <OrderDetailModal open={openDetailModal} onClose={handleCloseDetailModal} order={row} />
 
          {row.status === 'stock_issue' && (
             <StockIssueModal

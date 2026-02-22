@@ -166,18 +166,32 @@ export function ProcessOrderView({ orderId }: Props) {
       }
 
       // Build request
-      const processingItems = Array.from(selections.entries()).map(([orderProductId, pieces]) => ({
-         order_product_id: orderProductId,
-         pieces: pieces.map((p) => ({
-            piece_number: p.piece_number,
-            use_remnant: p.use_remnant,
-            inventory_id: p.selected_inventory_id,
-         })),
+      const processingItems = processingData.processing_items.map((item) => {
+         // Get pieces from selections for individual tracking items
+         const pieces = selections.get(item.order_product_id) || [];
+
+         return {
+            order_product_id: item.order_product_id,
+            pieces: pieces.map((p) => ({
+               piece_number: p.piece_number,
+               use_remnant: p.use_remnant,
+               inventory_id: p.selected_inventory_id,
+            })),
+         };
+      });
+
+      // Map services
+      const processingServices = processingData.processing_services.map((service) => ({
+         order_service_id: service.order_service_id,
+         notes: service.notes || '',
       }));
 
       setSubmitting(true);
       try {
-         const res = await processOrder(orderId, { processing_items: processingItems });
+         const res = await processOrder(orderId, {
+            processing_items: processingItems,
+            processing_services: processingServices,
+         });
          if (res.success) {
             toast.success('Order processed successfully!');
             router.push(paths.dashboard.orders.root);
@@ -194,7 +208,7 @@ export function ProcessOrderView({ orderId }: Props) {
       return <LoadingScreen />;
    }
 
-   const { order, processing_items } = processingData;
+   const { order, processing_items, processing_services } = processingData;
 
    return (
       <DashboardContent>
@@ -233,7 +247,10 @@ export function ProcessOrderView({ orderId }: Props) {
             </Grid>
          </Card>
 
-         {/* Processing Items */}
+         {/* Processing Items (Products) */}
+         <Typography variant="h6" sx={{ mb: 2 }}>
+            Products
+         </Typography>
          {processing_items.map((item) => (
             <Card key={item.order_product_id} sx={{ p: 3, mb: 3 }}>
                {/* Product Header */}
@@ -337,6 +354,56 @@ export function ProcessOrderView({ orderId }: Props) {
                )}
             </Card>
          ))}
+
+         {/* Processing Services */}
+         {processing_services && processing_services.length > 0 && (
+            <>
+               <Typography variant="h6" sx={{ mb: 2 }}>
+                  Services
+               </Typography>
+               {processing_services.map((item) => (
+                  <Card key={item.order_service_id} sx={{ p: 3, mb: 3 }}>
+                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box
+                           sx={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 1,
+                              bgcolor: 'background.neutral',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                           }}
+                        >
+                           <Iconify
+                              icon="solar:washing-machine-bold-duotone"
+                              width={24}
+                              sx={{ color: 'text.disabled' }}
+                           />
+                        </Box>
+                        <Box sx={{ flexGrow: 1 }}>
+                           <Typography variant="h6">{item.service.name}</Typography>
+                           <Typography variant="body2" color="text.secondary">
+                              Qty: {item.qty} {item.service.unit}
+                           </Typography>
+                           {item.notes && (
+                              <Typography
+                                 variant="caption"
+                                 color="info.main"
+                                 sx={{ mt: 0.5, display: 'block' }}
+                              >
+                                 Note: {item.notes}
+                              </Typography>
+                           )}
+                        </Box>
+                        <Alert severity="success" icon={<Iconify icon="solar:check-circle-bold" />}>
+                           Ready to Process
+                        </Alert>
+                     </Box>
+                  </Card>
+               ))}
+            </>
+         )}
 
          {/* Submit Button */}
          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>

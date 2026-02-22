@@ -1,5 +1,6 @@
 import type { Product } from './product';
 import type { Order } from './order';
+import type { IService } from './service';
 
 export interface ProcessingPiece {
    piece_number: number;
@@ -23,9 +24,18 @@ export interface ProcessingItem {
    pieces: ProcessingPiece[];
 }
 
+export interface ProcessingService {
+   order_service_id: string;
+   service: IService;
+   qty: number;
+   price_at_order: number;
+   notes?: string;
+}
+
 export interface ProcessingDataResponse {
    order: Order;
    processing_items: ProcessingItem[];
+   processing_services: ProcessingService[];
 }
 
 export interface ProcessOrderPiece {
@@ -39,6 +49,12 @@ export interface ProcessOrderItem {
    pieces: ProcessOrderPiece[];
 }
 
+export interface ProcessOrderService {
+   order_service_id: string;
+   notes?: string;
+}
+
 export interface ProcessOrderRequest {
    processing_items: ProcessOrderItem[];
+   processing_services: ProcessOrderService[];
 }

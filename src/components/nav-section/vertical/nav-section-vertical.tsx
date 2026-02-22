@@ -2,6 +2,8 @@
 
 import type { NavGroupProps, NavSectionProps } from '../types';
 
+import { useState, useEffect } from 'react';
+
 import { useBoolean } from 'minimal-shared/hooks';
 import { mergeClasses } from 'minimal-shared/utils';
 
@@ -69,6 +71,18 @@ function Group({
    const authStore = useAuthStore();
    const { user } = authStore;
    const userPermissions = user?.permissions;
+
+   const [mounted, setMounted] = useState(false);
+
+   useEffect(() => {
+      setMounted(true);
+   }, []);
+
+   // If permissions are required, we must wait for client-side hydration to know the user
+   // Otherwise server renders one thing (e.g. hidden) and client renders another (e.g. shown) or vice versa
+   if (requiredPermissions && requiredPermissions.length > 0 && !mounted) {
+      return null;
+   }
 
    const hasPermission =
       !requiredPermissions ||

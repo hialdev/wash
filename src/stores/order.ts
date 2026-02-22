@@ -21,6 +21,7 @@ export interface CreateOrderInput {
 
 interface OrderState {
    orders: OrderData[];
+   order: OrderData | null;
 
    all: (params?: any) => Promise<any>;
    detail: ({ id }: { id: string }) => Promise<any>;
@@ -53,6 +54,7 @@ const useOrderStore = create<OrderState>()(
    persist(
       (set, get) => ({
          orders: [],
+         order: null,
          all: async (params?: any) => {
             const queryParams = new URLSearchParams();
 
@@ -77,6 +79,9 @@ const useOrderStore = create<OrderState>()(
          },
          detail: async ({ id }) => {
             const response = await protectedApi.get(`/orders/${id}`);
+            if (response.data.success && response.data.data) {
+               set({ order: response.data.data });
+            }
             return response.data;
          },
          add: async ({ data }) => {
@@ -117,6 +122,9 @@ const useOrderStore = create<OrderState>()(
          },
          getMyOrder: async ({ id }: { id: string }) => {
             const response = await protectedApi.get(`/user/my-orders/${id}`);
+            if (response.data.success && response.data.data) {
+               set({ order: response.data.data });
+            }
             return response.data;
          },
          requestRefund: async ({ id }) => {

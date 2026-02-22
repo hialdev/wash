@@ -43,13 +43,13 @@ type CheckoutFormType = z.infer<typeof CheckoutSchema>;
 
 export function CheckoutView() {
    const router = useRouter();
-   const { items, getTotalPrice, clearCart, validateAllStock } = useCartStore();
+   const { items, serviceItems, getTotalPrice, clearCart, validateAllStock } = useCartStore();
    const { checkout } = useOrderStore();
-   // Auth store no longer needed for ID access in payload
 
    const [loading, setLoading] = useState<boolean>(false);
 
    const totalPrice = getTotalPrice();
+   const hasAnyItem = items.length > 0 || serviceItems.length > 0;
 
    const methods = useForm<CheckoutFormType>({
       resolver: zodResolver(CheckoutSchema),
@@ -66,7 +66,7 @@ export function CheckoutView() {
    } = methods;
 
    const onSubmit = handleSubmit(async (data) => {
-      if (items.length === 0) {
+      if (!hasAnyItem) {
          toast.error('Keranjang kosong');
          return;
       }
@@ -74,43 +74,51 @@ export function CheckoutView() {
       setLoading(true);
 
       try {
-         // Validate stock one more time before creating order
-         const validations = await validateAllStock();
-         const hasInvalidStock = validations.some((v) => !v.isValid);
+         // Validate product stock
+         if (items.length > 0) {
+            const validations = await validateAllStock();
+            const hasInvalidStock = validations.some((v) => !v.isValid);
 
-         if (hasInvalidStock) {
-            const errors = validations
-               .filter((v) => !v.isValid)
-               .map(
-                  (v) =>
-                     `${v.productTitle}: Stock tersedia ${v.availableStock}, diminta ${v.requestedQty}`
+            if (hasInvalidStock) {
+               const errors = validations
+                  .filter((v) => !v.isValid)
+                  .map(
+                     (v) =>
+                        `${v.productTitle}: Stock tersedia ${v.availableStock}, diminta ${v.requestedQty}`
+                  );
+
+               toast.error(
+                  <div>
+                     <div>Stock telah berubah:</div>
+                     <ul style={{ margin: 0, paddingLeft: 20 }}>
+                        {errors.map((error, index) => (
+                           <li key={index}>{error}</li>
+                        ))}
+                     </ul>
+                  </div>
                );
-
-            toast.error(
-               <div>
-                  <div>Stock telah berubah:</div>
-                  <ul style={{ margin: 0, paddingLeft: 20 }}>
-                     {errors.map((error, index) => (
-                        <li key={index}>{error}</li>
-                     ))}
-                  </ul>
-               </div>
-            );
-            setLoading(false);
-            return;
+               setLoading(false);
+               return;
+            }
          }
 
          // Create order
          const orderData = {
-            // user_id handled by backend from JWT
             address_receiver: data.address_receiver,
             phone_receiver: data.phone_receiver,
             notes: data.notes || '',
+            // Map product items
             products: items.map((item) => ({
                product_id: item.product.id!,
                qty: item.qty,
                requested_length: item.requested_length,
                measurement_unit: item.measurement_unit,
+            })),
+            // Map service items
+            services: serviceItems.map((item) => ({
+               service_id: item.service.id!,
+               qty: item.qty,
+               notes: item.notes,
             })),
          };
 
@@ -131,7 +139,7 @@ export function CheckoutView() {
       setLoading(false);
    });
 
-   if (items.length === 0) {
+   if (!hasAnyItem) {
       return (
          <DashboardContent>
             <CustomBreadcrumbs
@@ -186,75 +194,155 @@ export function CheckoutView() {
                         Order Summary
                      </Typography>
 
-                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                        {items.map((item, i) => {
-                           const imageUrl = item.product.image
-                              ? `${process.env.NEXT_PUBLIC_API_HOST}/${item.product.image}`
-                              : '/assets/placeholder.svg';
+                     {/* PRODUCT SECTION */}
+                     {items.length > 0 && (
+                        <Box
+                           sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2, mb: 3 }}
+                        >
+                           <Typography variant="subtitle2" color="text.secondary">
+                              Products ({items.length})
+                           </Typography>
+                           {items.map((item, i) => {
+                              const imageUrl = item.product.image
+                                 ? `${process.env.NEXT_PUBLIC_API_HOST}/${item.product.image}`
+                                 : '/assets/placeholder.svg';
 
-                           const isIndividual = item.product.tracking_mode === 'individual';
-                           const subtotal = isIndividual
-                              ? (item.product.sale_price || 0) *
-                                (item.requested_length || 0) *
-                                item.qty
-                              : (item.product.sale_price || 0) * item.qty;
+                              const isIndividual = item.product.tracking_mode === 'individual';
+                              const subtotal = isIndividual
+                                 ? (item.product.sale_price || 0) *
+                                   (item.requested_length || 0) *
+                                   item.qty
+                                 : (item.product.sale_price || 0) * item.qty;
 
-                           return (
-                              <Box
-                                 key={i}
-                                 sx={{
-                                    display: 'flex',
-                                    gap: 2,
-                                    p: 2,
-                                    border: 1,
-                                    borderColor: 'divider',
-                                    borderRadius: 1,
-                                 }}
-                              >
-                                 <CardMedia
-                                    component="img"
-                                    image={imageUrl}
-                                    alt={item.product.title}
+                              return (
+                                 <Box
+                                    key={`prod-${i}`}
                                     sx={{
-                                       width: 80,
-                                       height: 80,
-                                       objectFit: 'cover',
+                                       display: 'flex',
+                                       gap: 2,
+                                       p: 2,
+                                       border: 1,
+                                       borderColor: 'divider',
                                        borderRadius: 1,
-                                       bgcolor: 'background.neutral',
                                     }}
-                                 />
+                                 >
+                                    <CardMedia
+                                       component="img"
+                                       image={imageUrl}
+                                       alt={item.product.title}
+                                       sx={{
+                                          width: 80,
+                                          height: 80,
+                                          objectFit: 'cover',
+                                          borderRadius: 1,
+                                          bgcolor: 'background.neutral',
+                                       }}
+                                    />
 
-                                 <Box sx={{ flexGrow: 1 }}>
-                                    <Typography variant="subtitle1">
-                                       {item.product.title}
-                                    </Typography>
-                                    {isIndividual ? (
-                                       <>
-                                          <Typography variant="body2" color="text.secondary">
-                                             {fCurrency(item.product.sale_price || 0)}/
-                                             {item.measurement_unit} × {item.requested_length}{' '}
-                                             {item.measurement_unit} × {item.qty} qty
-                                          </Typography>
-                                          <Typography variant="caption" color="primary.main">
-                                             Total:{' '}
-                                             {((item.requested_length || 0) * item.qty).toFixed(2)}{' '}
-                                             {item.measurement_unit}
-                                          </Typography>
-                                       </>
-                                    ) : (
-                                       <Typography variant="body2" color="text.secondary">
-                                          {fCurrency(item.product.sale_price || 0)} × {item.qty}
+                                    <Box sx={{ flexGrow: 1 }}>
+                                       <Typography variant="subtitle1">
+                                          {item.product.title}
                                        </Typography>
-                                    )}
-                                 </Box>
+                                       {isIndividual ? (
+                                          <>
+                                             <Typography variant="body2" color="text.secondary">
+                                                {fCurrency(item.product.sale_price || 0)}/
+                                                {item.measurement_unit} × {item.requested_length}{' '}
+                                                {item.measurement_unit} × {item.qty} qty
+                                             </Typography>
+                                             <Typography variant="caption" color="primary.main">
+                                                Total:{' '}
+                                                {((item.requested_length || 0) * item.qty).toFixed(
+                                                   2
+                                                )}{' '}
+                                                {item.measurement_unit}
+                                             </Typography>
+                                          </>
+                                       ) : (
+                                          <Typography variant="body2" color="text.secondary">
+                                             {fCurrency(item.product.sale_price || 0)} × {item.qty}
+                                          </Typography>
+                                       )}
+                                    </Box>
 
-                                 <Typography variant="h6" color="primary.main">
-                                    {fCurrency(subtotal)}
-                                 </Typography>
-                              </Box>
-                           );
-                        })}
-                     </Box>
+                                    <Typography variant="h6" color="primary.main">
+                                       {fCurrency(subtotal)}
+                                    </Typography>
+                                 </Box>
+                              );
+                           })}
+                        </Box>
+                     )}
+
+                     {items.length > 0 && serviceItems.length > 0 && <Divider sx={{ my: 3 }} />}
+
+                     {/* SERVICE SECTION */}
+                     {serviceItems.length > 0 && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                           <Typography variant="subtitle2" color="text.secondary">
+                              Services ({serviceItems.length})
+                           </Typography>
+                           {serviceItems.map((item, i) => {
+                              const subtotal = (item.service.price || 0) * item.qty;
+
+                              return (
+                                 <Box
+                                    key={`serv-${i}`}
+                                    sx={{
+                                       display: 'flex',
+                                       gap: 2,
+                                       p: 2,
+                                       border: 1,
+                                       borderColor: 'divider',
+                                       borderRadius: 1,
+                                    }}
+                                 >
+                                    <Box
+                                       sx={{
+                                          width: 80,
+                                          height: 80,
+                                          borderRadius: 1,
+                                          bgcolor: 'background.neutral',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          flexShrink: 0,
+                                       }}
+                                    >
+                                       <Iconify
+                                          icon="solar:washing-machine-bold-duotone"
+                                          width={40}
+                                          sx={{ color: 'text.disabled' }}
+                                       />
+                                    </Box>
+
+                                    <Box sx={{ flexGrow: 1 }}>
+                                       <Typography variant="subtitle1">
+                                          {item.service.name}
+                                       </Typography>
+                                       <Typography variant="body2" color="text.secondary">
+                                          {fCurrency(item.service.price || 0)} × {item.qty}{' '}
+                                          {item.service.unit}
+                                       </Typography>
+                                       {item.notes && (
+                                          <Typography
+                                             variant="caption"
+                                             color="text.secondary"
+                                             sx={{ display: 'block' }}
+                                          >
+                                             Note: {item.notes}
+                                          </Typography>
+                                       )}
+                                    </Box>
+
+                                    <Typography variant="h6" color="secondary.main">
+                                       {fCurrency(subtotal)}
+                                    </Typography>
+                                 </Box>
+                              );
+                           })}
+                        </Box>
+                     )}
 
                      <Divider sx={{ my: 3 }} />
 

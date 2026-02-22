@@ -88,6 +88,24 @@ export const navData: NavSectionProps['data'] = [
             icon: icon('solar:users-group-two-rounded-bold-duotone'),
             requiredPermissions: ['Read Principle'],
          },
+         {
+            title: 'Services',
+            path: paths.dashboard.service.root,
+            icon: icon('solar:washing-machine-bold-duotone'),
+            requiredPermissions: ['Read Service'],
+            children: [
+               {
+                  title: 'List',
+                  path: paths.dashboard.service.root,
+                  requiredPermissions: ['Read Service'],
+               },
+               {
+                  title: 'Create',
+                  path: paths.dashboard.service.new,
+                  requiredPermissions: ['Add Service'],
+               },
+            ],
+         },
       ],
    },
    /**
@@ -136,6 +154,33 @@ export const navData: NavSectionProps['data'] = [
       ],
    },
    /**
+    * Raw Material (COGS)
+    */
+   {
+      subheader: 'Raw Material',
+      requiredPermissions: ['Read RawMaterial'],
+      items: [
+         {
+            title: 'Raw Material',
+            path: paths.dashboard.rawMaterials.root,
+            icon: icon('solar:test-tube-bold-duotone'),
+            requiredPermissions: ['Read RawMaterial'],
+         },
+         {
+            title: 'Raw Material Purchase',
+            path: paths.dashboard.rawMaterialPurchases.root,
+            icon: icon('solar:cart-plus-bold-duotone'),
+            requiredPermissions: ['Read RawMaterial'],
+         },
+         {
+            title: 'Raw Material Movements',
+            path: paths.dashboard.rawMaterialMovements.root,
+            icon: icon('solar:history-bold-duotone'),
+            requiredPermissions: ['Read RawMaterial'],
+         },
+      ],
+   },
+   /**
     * Sales
     */
    {
@@ -147,6 +192,38 @@ export const navData: NavSectionProps['data'] = [
             path: paths.dashboard.orders.root,
             icon: icon('solar:bag-4-bold-duotone'),
             requiredPermissions: ['Read Order'], // Requires Read Order permission
+         },
+      ],
+   },
+   /**
+    * Finance
+    */
+   {
+      subheader: 'Finance',
+      requiredPermissions: ['Read Journal', 'Read Finance'],
+
+      items: [
+         {
+            title: 'Reports',
+            path: paths.dashboard.finance.reports,
+            icon: icon('solar:graph-bold-duotone'),
+            requiredPermissions: ['Read Finance'],
+         },
+         {
+            title: 'Journal',
+            path: paths.dashboard.finance.journal.root,
+            icon: icon('solar:notebook-bold-duotone'),
+            requiredPermissions: ['Read Journal'],
+            children: [
+               {
+                  title: 'List',
+                  path: paths.dashboard.finance.journal.root,
+               },
+               {
+                  title: 'Create',
+                  path: paths.dashboard.finance.journal.new,
+               },
+            ],
          },
       ],
    },
