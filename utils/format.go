@@ -107,11 +107,35 @@ func romanMonth(m time.Month) string {
 }
 
 func GenerateCode(clientCode string, notation string, newOrder int) string {
-	
+
 	now := time.Now()
 	year := now.Format("06") // 2 digit
 	month := romanMonth(now.Month())
 
 	code := fmt.Sprintf("%s/%s/%03d/%s/%s", clientCode, notation, newOrder, month, year)
 	return code
+}
+
+func RespPagination(c *fiber.Ctx, respType string, message string, data interface{}, total int64, page int, totalPages int) error {
+	type paginationMeta struct {
+		TotalData  int64 `json:"total_data"`
+		Page       int   `json:"page"`
+		TotalPages int   `json:"total_pages"`
+	}
+
+	type paginatedResponse struct {
+		Data interface{}    `json:"data"`
+		Meta paginationMeta `json:"meta"`
+	}
+
+	payload := paginatedResponse{
+		Data: data,
+		Meta: paginationMeta{
+			TotalData:  total,
+			Page:       page,
+			TotalPages: totalPages,
+		},
+	}
+
+	return RespApi(c, respType, message, payload)
 }

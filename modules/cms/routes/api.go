@@ -209,6 +209,16 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	serviceGroup.Use(middlewares.DoACL("Update Service")).Post("/:id", services.UpdateService)
 	serviceGroup.Use(middlewares.DoACL("Delete Service")).Delete("/:id", services.DeleteService)
 
+	// Service Cogs routes
+	serviceCogs := handlers.NewServiceCogHandler(db)
+	scGroup := api.Group("/service-cogs")
+	scGroup.Use(middlewares.JWTProtected())
+	scGroup.Use(middlewares.DoACL("Read Service")).Get("/", serviceCogs.GetAllServiceCogs)
+	scGroup.Use(middlewares.DoACL("Read Service")).Get("/:id", serviceCogs.GetServiceCog)
+	scGroup.Use(middlewares.DoACL("Update Service")).Post("/", serviceCogs.AddServiceCog)
+	scGroup.Use(middlewares.DoACL("Update Service")).Post("/:id", serviceCogs.UpdateServiceCog)
+	scGroup.Use(middlewares.DoACL("Update Service")).Delete("/:id", serviceCogs.DeleteServiceCog)
+
 	// Raw Material routes
 	rawMaterials := handlers.NewRawMaterialHandler(db)
 	rm := api.Group("/raw-materials")
@@ -253,4 +263,28 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	finance.Use(middlewares.JWTProtected())
 	finance.Use(middlewares.DoACL("Read Finance")).Get("/summary", financeReports.GetSummaryReport)
 	finance.Use(middlewares.DoACL("Read Finance")).Get("/export-pdf", financeReports.ExportReportPDF)
+
+	// Voucher Routes
+	vouchers := handlers.NewVoucherHandler(db)
+	voucher := api.Group("/vouchers")
+	voucher.Use(middlewares.JWTProtected())
+
+	// Public Voucher Validation Route (No ACL, just requires JWT)
+	voucher.Post("/validate", vouchers.ValidateVoucher)
+
+	voucher.Use(middlewares.DoACL("Read Voucher")).Get("/", vouchers.GetAllVouchers)
+	voucher.Use(middlewares.DoACL("Read Voucher")).Get("/:id", vouchers.GetVoucher)
+	voucher.Use(middlewares.DoACL("Add Voucher")).Post("/", vouchers.AddVoucher)
+	voucher.Use(middlewares.DoACL("Update Voucher")).Post("/:id", vouchers.UpdateVoucher)
+	voucher.Use(middlewares.DoACL("Delete Voucher")).Delete("/:id", vouchers.DeleteVoucher)
+
+	// Bank routes
+	bankHandler := &handlers.BankHandler{DB: db}
+	banks := api.Group("/banks")
+	banks.Use(middlewares.JWTProtected())
+	banks.Get("/", bankHandler.GetAll)       // All logged-in users can view banks
+	banks.Get("/:id", bankHandler.GetById)   // All logged-in users can view bank detail
+	banks.Post("/", bankHandler.Create)      // Admin only (no ACL for now, can be added)
+	banks.Post("/:id", bankHandler.Update)   // Admin only
+	banks.Delete("/:id", bankHandler.Delete) // Admin only
 }

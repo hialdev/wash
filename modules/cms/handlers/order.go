@@ -40,6 +40,7 @@ type OrderInput struct {
 	AddressReceiver *string             `json:"address_receiver" validate:"required"`
 	PhoneReceiver   *string             `json:"phone_receiver" validate:"required"`
 	Notes           *string             `json:"notes,omitempty"`
+	VoucherCode     *string             `json:"voucher_code,omitempty"`
 	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
 	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
 }
@@ -48,6 +49,7 @@ type CustomerOrderInput struct {
 	AddressReceiver *string             `json:"address_receiver" validate:"required"`
 	PhoneReceiver   *string             `json:"phone_receiver" validate:"required"`
 	Notes           *string             `json:"notes,omitempty"`
+	VoucherCode     *string             `json:"voucher_code,omitempty"`
 	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
 	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
 }
@@ -70,6 +72,7 @@ func (h *OrderHandler) GetOrder(c *fiber.Ctx) error {
 	var order models.Order
 	if err := h.DB.Preload("OrderProducts.Product").
 		Preload("OrderServices.Service"). // Preload services
+		Preload("Voucher").
 		First(&order, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "ise", "Gagal mendapatkan data Order", err.Error())
 	}
@@ -89,7 +92,10 @@ func (h *OrderHandler) GetAllOrders(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	// Base query with Distinct to avoid duplication from Preload JOIN
-	db := h.DB.Distinct().Preload("OrderProducts.Product").Preload("OrderServices.Service")
+	db := h.DB.Distinct().
+		Preload("OrderProducts.Product").
+		Preload("OrderServices.Service").
+		Preload("Voucher")
 
 	// Filter search
 	if search != "" {
@@ -330,6 +336,71 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		}
 	}()
 
+	// Handle Voucher
+	var voucherID *uuid.UUID
+	var discountAmount float64
+
+	if input.VoucherCode != nil && *input.VoucherCode != "" {
+		upperCode := strings.ToUpper(*input.VoucherCode)
+		var voucher models.Voucher
+
+		if err := tx.Where("code = ?", upperCode).First(&voucher).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				tx.Rollback()
+				return utils.RespApi(c, "bad", "Voucher tidak ditemukan", nil)
+			}
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Gagal cek voucher", err.Error())
+		}
+
+		if !*voucher.IsActive {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Voucher tidak aktif", nil)
+		}
+
+		now := time.Now()
+		if voucher.ValidFrom != nil && now.Before(*voucher.ValidFrom) {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Voucher belum berlaku", nil)
+		}
+		if voucher.ValidUntil != nil && now.After(*voucher.ValidUntil) {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Voucher sudah kadaluwarsa", nil)
+		}
+
+		if voucher.Quota != nil && voucher.UsedCount != nil && *voucher.UsedCount >= *voucher.Quota {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Kuota voucher telah habis", nil)
+		}
+
+		if voucher.MinPurchase != nil && totalBill < *voucher.MinPurchase {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Total belanja belum memenuhi syarat minimum voucher", nil)
+		}
+
+		if *voucher.DiscountType == "percentage" {
+			discountAmount = totalBill * (*voucher.DiscountValue / 100)
+			if voucher.MaxDiscount != nil && *voucher.MaxDiscount > 0 && discountAmount > *voucher.MaxDiscount {
+				discountAmount = *voucher.MaxDiscount
+			}
+		} else { // nominal
+			discountAmount = *voucher.DiscountValue
+		}
+
+		if discountAmount > totalBill {
+			discountAmount = totalBill
+		}
+
+		totalBill -= discountAmount
+		voucherID = &voucher.ID
+
+		// Increment used count
+		if err := tx.Model(&models.Voucher{}).Where("id = ?", voucher.ID).UpdateColumn("used_count", gorm.Expr("used_count + ?", 1)).Error; err != nil {
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Gagal update penggunaan voucher", err.Error())
+		}
+	}
+
 	// Create order
 	statusWaitingPayment := "waiting_payment"
 	order := models.Order{
@@ -340,6 +411,8 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		Status:          &statusWaitingPayment,
 		Notes:           input.Notes,
 		TotalBill:       &totalBill,
+		VoucherID:       voucherID,
+		DiscountAmount:  &discountAmount,
 	}
 
 	if err := tx.Create(&order).Error; err != nil {

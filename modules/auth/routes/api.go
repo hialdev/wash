@@ -96,4 +96,14 @@ func SetupAuthRoutes(app *fiber.App, db *gorm.DB) {
 	pm.Use(middlewares.DoACL("Add Permission")).Post("/", permissions.Create)
 	pm.Use(middlewares.DoACL("Update Permission")).Patch("/:id", permissions.Update)
 	pm.Use(middlewares.DoACL("Delete Permission")).Delete("/:id", permissions.Delete)
+
+	// --------------- Delivery Address Routes (per user)
+	deliveryAddress := &handlers.DeliveryAddressHandler{DB: db}
+	da := api.Group("/my-addresses")
+	da.Use(middlewares.JWTProtected())
+	da.Get("/", deliveryAddress.GetMyAddresses)
+	da.Post("/", deliveryAddress.Create)
+	da.Patch("/:id", deliveryAddress.Update)
+	da.Delete("/:id", deliveryAddress.Delete)
+	da.Patch("/:id/set-primary", deliveryAddress.SetPrimary)
 }

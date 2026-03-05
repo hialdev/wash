@@ -90,6 +90,7 @@ func (h *MyOrderHandler) GetMyOrders(c *fiber.Ctx) error {
 		Preload("OrderProducts.Product").
 		Preload("OrderServices.Service"). // Preload services
 		Preload("OrderLogs").
+		Preload("Voucher").
 		Where("user_id = ?", userID)
 
 	// Filter search
@@ -329,6 +330,71 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		}
 	}()
 
+	// Handle Voucher
+	var voucherID *uuid.UUID
+	var discountAmount float64
+
+	if input.VoucherCode != nil && *input.VoucherCode != "" {
+		upperCode := strings.ToUpper(*input.VoucherCode)
+		var voucher models.Voucher
+
+		if err := tx.Where("code = ?", upperCode).First(&voucher).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				tx.Rollback()
+				return utils.RespApi(c, "bad", "Voucher tidak ditemukan", nil)
+			}
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Gagal cek voucher", err.Error())
+		}
+
+		if !*voucher.IsActive {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Voucher tidak aktif", nil)
+		}
+
+		now := time.Now()
+		if voucher.ValidFrom != nil && now.Before(*voucher.ValidFrom) {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Voucher belum berlaku", nil)
+		}
+		if voucher.ValidUntil != nil && now.After(*voucher.ValidUntil) {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Voucher sudah kadaluwarsa", nil)
+		}
+
+		if voucher.Quota != nil && voucher.UsedCount != nil && *voucher.UsedCount >= *voucher.Quota {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Kuota voucher telah habis", nil)
+		}
+
+		if voucher.MinPurchase != nil && totalBill < *voucher.MinPurchase {
+			tx.Rollback()
+			return utils.RespApi(c, "bad", "Total belanja belum memenuhi syarat minimum voucher", nil)
+		}
+
+		if *voucher.DiscountType == "percentage" {
+			discountAmount = totalBill * (*voucher.DiscountValue / 100)
+			if voucher.MaxDiscount != nil && *voucher.MaxDiscount > 0 && discountAmount > *voucher.MaxDiscount {
+				discountAmount = *voucher.MaxDiscount
+			}
+		} else { // nominal
+			discountAmount = *voucher.DiscountValue
+		}
+
+		if discountAmount > totalBill {
+			discountAmount = totalBill
+		}
+
+		totalBill -= discountAmount
+		voucherID = &voucher.ID
+
+		// Increment used count
+		if err := tx.Model(&models.Voucher{}).Where("id = ?", voucher.ID).UpdateColumn("used_count", gorm.Expr("used_count + ?", 1)).Error; err != nil {
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Gagal update penggunaan voucher", err.Error())
+		}
+	}
+
 	statusWaitingPayment := "waiting_payment"
 	order := models.Order{
 		OrderNumber:     &orderNumber,
@@ -338,6 +404,8 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		Status:          &statusWaitingPayment,
 		Notes:           input.Notes,
 		TotalBill:       &totalBill,
+		VoucherID:       voucherID,
+		DiscountAmount:  &discountAmount,
 	}
 
 	if err := tx.Create(&order).Error; err != nil {
@@ -424,6 +492,7 @@ func (h *MyOrderHandler) GetMyOrderDetail(c *fiber.Ctx) error {
 	if err := h.DB.Preload("OrderProducts.Product").
 		Preload("OrderServices.Service"). // Preload services
 		Preload("OrderLogs").
+		Preload("Voucher").
 		Where("id = ? AND user_id = ?", orderID, userID).
 		First(&order).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

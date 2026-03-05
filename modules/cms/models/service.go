@@ -17,4 +17,5 @@ type Service struct {
 	EstimatedDuration *int             `json:"estimated_duration,omitempty"` // in minutes
 	IsActive          *bool            `json:"is_active" gorm:"default:true"`
 	Images            *string          `json:"images,omitempty" gorm:"type:text"` // JSON array
+	ServiceCogs       []ServiceCog     `json:"service_cogs,omitempty" gorm:"foreignKey:ServiceID"`
 }

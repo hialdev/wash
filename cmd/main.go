@@ -57,6 +57,7 @@ func main() {
 		&models.Role{},
 		&models.Permission{},
 		&models.Otp{},
+		&models.DeliveryAddress{},
 
 		// CMS
 		&CMSModels.SettingGroup{},
@@ -82,6 +83,7 @@ func main() {
 		// Services
 		&CMSModels.ServiceCategory{},
 		&CMSModels.Service{},
+		&CMSModels.ServiceCog{},
 		&CMSModels.OrderService{},
 		&CMSModels.OrderServiceProcess{},
 		&CMSModels.OrderServiceDetail{},
@@ -91,7 +93,11 @@ func main() {
 		&CMSModels.RawMaterialPurchase{},
 		&CMSModels.RawMaterialMovement{},
 
+		// Voucher
+		&CMSModels.Voucher{},
+
 		// Finance
+		&CMSModels.Bank{},
 		&CMSModels.Journal{},
 	)
 
