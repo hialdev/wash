@@ -601,6 +601,8 @@ export function CheckoutView() {
                                  onClose={() => setAddAddressOpen(false)}
                                  onSaved={() => {
                                     setAddAddressOpen(false);
+                                    fetchAddresses();
+                                    toast.success('Alamat berhasil disimpan, refresh halaman jika tidak muncul');
                                  }}
                               />
                            </Box>
