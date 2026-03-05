@@ -65,6 +65,11 @@ export const navData: NavSectionProps['data'] = [
             requiredPermissions: ['Read ProductType'],
          },
          {
+            title: 'Banks',
+            path: paths.dashboard.banks.root,
+            icon: icon('solar:card-bold-duotone'),
+         },
+         {
             title: 'Products',
             path: paths.dashboard.products.root,
             icon: icon('solar:box-bold-duotone'),
@@ -185,13 +190,31 @@ export const navData: NavSectionProps['data'] = [
     */
    {
       subheader: 'Sales',
-      requiredPermissions: ['Read Order'],
+      requiredPermissions: ['Read Order', 'Read Voucher'],
       items: [
          {
             title: 'Orders',
             path: paths.dashboard.orders.root,
             icon: icon('solar:bag-4-bold-duotone'),
             requiredPermissions: ['Read Order'], // Requires Read Order permission
+         },
+         {
+            title: 'Vouchers',
+            path: paths.dashboard.vouchers.root,
+            icon: icon('solar:ticket-sale-bold-duotone'),
+            requiredPermissions: ['Read Voucher'],
+            children: [
+               {
+                  title: 'List',
+                  path: paths.dashboard.vouchers.root,
+                  requiredPermissions: ['Read Voucher'],
+               },
+               {
+                  title: 'Create',
+                  path: paths.dashboard.vouchers.new,
+                  requiredPermissions: ['Add Voucher'],
+               },
+            ],
          },
       ],
    },

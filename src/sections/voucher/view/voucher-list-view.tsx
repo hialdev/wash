@@ -1,6 +1,6 @@
 'use client';
 
-import type { IService, IServiceTableFilters } from 'src/types/service';
+import type { IVoucher, IVoucherTableFilters } from 'src/types/voucher';
 import type { TableHeadCellProps } from 'src/components/table';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -18,7 +18,7 @@ import IconButton from '@mui/material/IconButton';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
-import useServiceStore from 'src/stores/service';
+import useVoucherStore from 'src/stores/voucher';
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { toast } from 'src/components/snackbar';
@@ -35,18 +35,17 @@ import {
    TablePaginationCustom,
 } from 'src/components/table';
 
-import { ServiceTableRow } from '../service-table-row';
-import { ServiceTableToolbar } from '../service-table-toolbar';
-import { ServiceTableFiltersResult } from '../service-table-filters-result';
-import { ServiceCogsDialog } from '../service-cogs-dialog';
+import { VoucherTableRow } from '../voucher-table-row';
+import { VoucherTableToolbar } from '../voucher-table-toolbar';
 
 // ----------------------------------------------------------------------
 
 const TABLE_HEAD: TableHeadCellProps[] = [
-   { id: 'name', label: 'Name' },
-   { id: 'created_at', label: 'Created At', width: 160 },
-   { id: 'price', label: 'Price', width: 140 },
-   { id: 'is_active', label: 'Status', width: 110 },
+   { id: 'code', label: 'Voucher Code' },
+   { id: 'discount_value', label: 'Discount', width: 140 },
+   { id: 'quota', label: 'Usage / Quota', width: 140 },
+   { id: 'is_active', label: 'Status & Vis.', width: 110 },
+   { id: 'valid_until', label: 'Expiry', width: 120 },
    { id: '', width: 88 },
 ];
 
@@ -56,19 +55,17 @@ const STATUS_OPTIONS = [
    { value: 'false', label: 'Inactive' },
 ];
 
-// ----------------------------------------------------------------------
-
-export function ServiceListView() {
+export function VoucherListView() {
    const router = useRouter();
    const table = useTable();
    const confirmDialog = useBoolean();
-   const { fetchServices, deleteService } = useServiceStore();
+   const { fetchVouchers, deleteVoucher } = useVoucherStore();
 
-   const [tableData, setTableData] = useState<IService[]>([]);
+   const [tableData, setTableData] = useState<IVoucher[]>([]);
    const [loading, setLoading] = useState<boolean>(true);
 
-   const filters = useSetState<IServiceTableFilters>({
-      name: '',
+   const filters = useSetState<IVoucherTableFilters>({
+      code: '',
       status: 'all',
    });
    const { state: currentFilters } = filters;
@@ -80,17 +77,6 @@ export function ServiceListView() {
       totalPages: 1,
    });
 
-   const cogsDialog = useBoolean();
-   const [selectedServiceForCogs, setSelectedServiceForCogs] = useState<{
-      id: string;
-      name: string;
-   } | null>(null);
-
-   const handleManageCogs = useCallback((id: string, name: string) => {
-      setSelectedServiceForCogs({ id, name });
-      cogsDialog.onTrue();
-   }, []);
-
    const fetchData = useCallback(async () => {
       setLoading(true);
 
@@ -99,7 +85,7 @@ export function ServiceListView() {
          limit: table.rowsPerPage,
          sort: table.orderBy,
          order: table.order,
-         search: currentFilters.name,
+         code: currentFilters.code,
       };
 
       if (currentFilters.status !== 'all') {
@@ -107,10 +93,16 @@ export function ServiceListView() {
       }
 
       try {
-         const res = await fetchServices(params);
+         const res = await fetchVouchers(params);
          if (res.data) {
-            const { pagination: pgnt, services } = res.data;
-            setTableData(services || []);
+            setTableData(res.data || []);
+            // Quick workaround if pagination metadata is not structured standardly on voucher
+            const pgnt = res.pagination || {
+               page: 1,
+               limit: 10,
+               total: res.data.length,
+               totalPages: 1,
+            };
             setPagination({
                page: pgnt.page,
                limit: pgnt.limit,
@@ -119,7 +111,7 @@ export function ServiceListView() {
             });
          }
       } catch (error) {
-         toast.error('Failed to load services');
+         toast.error('Failed to load vouchers');
       } finally {
          setLoading(false);
       }
@@ -128,9 +120,9 @@ export function ServiceListView() {
       table.rowsPerPage,
       table.order,
       table.orderBy,
-      currentFilters.name,
+      currentFilters.code,
       currentFilters.status,
-      fetchServices,
+      fetchVouchers,
    ]);
 
    useEffect(() => {
@@ -140,14 +132,14 @@ export function ServiceListView() {
    const handleDeleteRow = useCallback(
       async (id: string) => {
          try {
-            await deleteService(id);
+            await deleteVoucher(id);
             toast.success('Delete success!');
             fetchData();
          } catch (error: any) {
             toast.error('Failed to delete');
          }
       },
-      [deleteService, fetchData]
+      [deleteVoucher, fetchData]
    );
 
    const handleDeleteRows = useCallback(async () => {
@@ -159,7 +151,7 @@ export function ServiceListView() {
       try {
          // eslint-disable-next-line no-restricted-syntax
          for (const id of table.selected) {
-            await deleteService(id);
+            await deleteVoucher(id);
          }
          toast.success('Delete success!');
          table.onUpdatePageDeleteRows(tableData.length, tableData.length);
@@ -167,9 +159,7 @@ export function ServiceListView() {
       } catch (error) {
          toast.error('An error occurred while deleting!');
       }
-   }, [deleteService, fetchData, table, tableData.length]);
-
-   const canReset = currentFilters.name !== '' || currentFilters.status !== 'all';
+   }, [deleteVoucher, fetchData, table, tableData.length]);
 
    const notFound = !tableData.length && !loading;
 
@@ -202,39 +192,30 @@ export function ServiceListView() {
       <>
          <DashboardContent>
             <CustomBreadcrumbs
-               heading="Services"
+               heading="Vouchers"
                links={[
                   { name: 'Dashboard', href: paths.dashboard.root },
-                  { name: 'Services', href: paths.dashboard.service.root },
+                  { name: 'Vouchers', href: paths.dashboard.voucher.root },
                   { name: 'List' },
                ]}
                action={
                   <Button
-                     onClick={() => router.push(paths.dashboard.service.new)}
+                     onClick={() => router.push(paths.dashboard.voucher.new)}
                      variant="contained"
                      startIcon={<Iconify icon="mingcute:add-line" />}
                   >
-                     New Service
+                     New Voucher
                   </Button>
                }
                sx={{ mb: { xs: 3, md: 5 } }}
             />
 
             <Card>
-               <ServiceTableToolbar
+               <VoucherTableToolbar
                   filters={filters}
                   onResetPage={table.onResetPage}
                   options={{ statuses: STATUS_OPTIONS }}
                />
-
-               {canReset && (
-                  <ServiceTableFiltersResult
-                     filters={filters}
-                     totalResults={pagination.total}
-                     onResetPage={table.onResetPage}
-                     sx={{ p: 2.5, pt: 0 }}
-                  />
-               )}
 
                <Box sx={{ position: 'relative' }}>
                   <TableSelectedAction
@@ -283,13 +264,12 @@ export function ServiceListView() {
                            ) : (
                               <>
                                  {tableData.map((row) => (
-                                    <ServiceTableRow
+                                    <VoucherTableRow
                                        key={row.id}
                                        row={row}
                                        selected={table.selected.includes(row.id)}
                                        onSelectRow={() => table.onSelectRow(row.id)}
                                        onDeleteRow={() => handleDeleteRow(row.id)}
-                                       onManageCogs={handleManageCogs}
                                     />
                                  ))}
                               </>
@@ -310,7 +290,7 @@ export function ServiceListView() {
                      table.onChangePage(e, newPage);
                   }}
                   onRowsPerPageChange={(e) => {
-                     const newLimit = parseInt(e.target.value, 10);
+                     const newLimit = Number.parseInt(e.target.value, 10);
                      table.onChangeRowsPerPage(e as any);
                      setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
                      table.onResetPage();
@@ -324,18 +304,6 @@ export function ServiceListView() {
          </DashboardContent>
 
          {renderConfirmDialog()}
-
-         {selectedServiceForCogs && (
-            <ServiceCogsDialog
-               open={cogsDialog.value}
-               onClose={() => {
-                  cogsDialog.onFalse();
-                  setSelectedServiceForCogs(null);
-               }}
-               serviceId={selectedServiceForCogs.id}
-               serviceName={selectedServiceForCogs.name}
-            />
-         )}
       </>
    );
 }

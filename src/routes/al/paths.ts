@@ -83,6 +83,12 @@ export const paths = {
          edit: (id: string) => `${ROOTS.DASHBOARD}/product-types/${id}/edit`,
       },
 
+      banks: {
+         root: `${ROOTS.DASHBOARD}/banks`,
+         new: `${ROOTS.DASHBOARD}/banks/new`,
+         edit: (id: string) => `${ROOTS.DASHBOARD}/banks/${id}/edit`,
+      },
+
       products: {
          root: `${ROOTS.DASHBOARD}/products`,
          create: `${ROOTS.DASHBOARD}/products/create`,
@@ -146,6 +152,12 @@ export const paths = {
          serviceTracking: (id: string, serviceId: string) =>
             `${ROOTS.DASHBOARD}/orders/${id}/service/${serviceId}`,
          usedRawMaterial: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}/used-raw-material`,
+      },
+
+      vouchers: {
+         root: `${ROOTS.DASHBOARD}/vouchers`,
+         new: `${ROOTS.DASHBOARD}/vouchers/new`,
+         edit: (id: string) => `${ROOTS.DASHBOARD}/vouchers/${id}/edit`,
       },
 
       // E-Commerce - Dashboard

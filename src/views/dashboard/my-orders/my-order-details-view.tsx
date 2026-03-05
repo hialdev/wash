@@ -34,9 +34,11 @@ import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import useOrderStore from 'src/stores/order';
 import useOrderLogStatusStore from 'src/stores/order-log-status';
+import useBankStore from 'src/stores/bank';
 
 import ServiceItem from '../orders/components/service-item';
 import UsedRawMaterialList from '../orders/components/used-raw-material-list';
+import { UploadPaymentProofModal } from '../payment/[orderId]/components/upload-payment-proof-modal';
 
 // ----------------------------------------------------------------------
 
@@ -46,8 +48,10 @@ export default function MyOrderDetailsView() {
 
    const { getMyOrder: getOrder, order } = useOrderStore();
    const { logs, getByOrderId } = useOrderLogStatusStore();
+   const { banks, fetchBanks } = useBankStore();
 
    const [loading, setLoading] = useState(true);
+   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
    useEffect(() => {
       const init = async () => {
@@ -57,6 +61,7 @@ export default function MyOrderDetailsView() {
                await Promise.all([
                   getOrder({ id: id as string }),
                   getByOrderId({ orderId: id as string }),
+                  fetchBanks({ is_active: true }),
                ]);
             } catch (error) {
                console.error('Failed to init order details:', error);
@@ -66,7 +71,7 @@ export default function MyOrderDetailsView() {
          }
       };
       init();
-   }, [id, getOrder, getByOrderId]);
+   }, [id, getOrder, getByOrderId, fetchBanks]);
 
    if (loading) {
       return <LoadingScreen />;
@@ -165,6 +170,23 @@ export default function MyOrderDetailsView() {
                               </Box>
                            </Box>
                            <Divider sx={{ borderStyle: 'dashed' }} />
+                           {(order as any).discount_amount > 0 && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                 <Box>
+                                    <Typography variant="body2" color="error">
+                                       Discount
+                                    </Typography>
+                                    {(order as any).voucher && (
+                                       <Typography variant="caption" color="text.secondary">
+                                          Voucher: {(order as any).voucher.code}
+                                       </Typography>
+                                    )}
+                                 </Box>
+                                 <Typography variant="subtitle2" color="error">
+                                    -{fCurrency((order as any).discount_amount || 0)}
+                                 </Typography>
+                              </Box>
+                           )}
                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                               <Typography variant="subtitle1">Total Bill</Typography>
                               <Typography variant="subtitle1" color="primary.main">
@@ -235,77 +257,226 @@ export default function MyOrderDetailsView() {
                </Stack>
             </Grid>
 
-            {/* Right Column: Timeline */}
+            {/* Right Column: Payment (if waiting) + Timeline */}
             <Grid size={{ xs: 12, md: 4 }}>
-               {/* Used Raw Material List - Removed for Customer View */}
+               <Stack spacing={3}>
+                  {/* Payment Section - only when waiting_payment */}
+                  {order.status === 'waiting_payment' && (
+                     <Card>
+                        <CardHeader title="Pembayaran" />
+                        <CardContent>
+                           <Box
+                              sx={{
+                                 display: 'flex',
+                                 justifyContent: 'space-between',
+                                 alignItems: 'center',
+                                 p: 2,
+                                 bgcolor: 'background.neutral',
+                                 borderRadius: 2,
+                                 mb: 2,
+                              }}
+                           >
+                              <Typography variant="subtitle2">Total Tagihan</Typography>
+                              <Typography variant="h5" color="primary.main">
+                                 {fCurrency(order.total_bill || 0)}
+                              </Typography>
+                           </Box>
 
-               <Card>
-                  <CardHeader title="Status History" />
-                  <CardContent>
-                     <Timeline position="right" sx={{ pl: 0 }}>
-                        {logs.map((log, index) => {
-                           const images = parseImages(log.images);
-                           const isLast = index === logs.length - 1;
+                           {/* Xendit Option */}
+                           {(order as any).xendit_invoice_url && (
+                              <Box sx={{ mb: 2 }}>
+                                 <Typography variant="subtitle2" gutterBottom>
+                                    Bayar Instant
+                                 </Typography>
+                                 <Button
+                                    fullWidth
+                                    variant="contained"
+                                    size="large"
+                                    href={(order as any).xendit_invoice_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    startIcon={<Iconify icon="solar:card-send-bold" />}
+                                 >
+                                    Bayar Sekarang
+                                 </Button>
+                                 <Box
+                                    sx={{
+                                       p: 1.5,
+                                       mt: 1,
+                                       bgcolor: 'info.lighter',
+                                       borderRadius: 1,
+                                       border: 1,
+                                       borderColor: 'info.light',
+                                    }}
+                                 >
+                                    <Typography variant="caption" color="info.darker">
+                                       Status akan otomatis berubah setelah pembayaran berhasil.
+                                    </Typography>
+                                 </Box>
+                              </Box>
+                           )}
 
-                           return (
-                              <TimelineItem key={log.id} sx={{ '&:before': { display: 'none' } }}>
-                                 <TimelineSeparator>
-                                    <TimelineDot color={statusColor[log.status || 'default']} />
-                                    {!isLast && <TimelineConnector />}
-                                 </TimelineSeparator>
-                                 <TimelineContent>
-                                    <Typography variant="subtitle2">
-                                       {statusLabel[log.status || 'Unknown']}
-                                    </Typography>
-                                    <Typography
-                                       variant="caption"
-                                       color="text.secondary"
-                                       display="block"
-                                       sx={{ mb: 1 }}
+                           <Divider sx={{ my: 2 }}>
+                              <Chip label="ATAU" size="small" />
+                           </Divider>
+
+                           {/* Bank Transfer */}
+                           <Box>
+                              <Typography variant="subtitle2" gutterBottom>
+                                 Transfer Manual
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                 Transfer ke salah satu rekening berikut:
+                              </Typography>
+                              {banks.length > 0 ? (
+                                 banks.map((bank) => (
+                                    <Card
+                                       key={bank.id}
+                                       variant="outlined"
+                                       sx={{ p: 2, mb: 1.5, bgcolor: 'background.neutral' }}
                                     >
-                                       {dayjs(log.created_at).format('DD MMM YYYY HH:mm')}
-                                    </Typography>
-                                    <Typography
-                                       variant="body2"
-                                       sx={{ color: 'text.secondary', mb: 1 }}
-                                    >
-                                       {log.reason}
-                                    </Typography>
-                                    {images.length > 0 && (
                                        <Box
-                                          sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}
+                                          sx={{
+                                             display: 'flex',
+                                             alignItems: 'center',
+                                             gap: 1.5,
+                                             mb: 0.5,
+                                          }}
                                        >
-                                          {images.map((img, idx) => (
+                                          {bank.logo && (
                                              <Box
-                                                key={idx}
                                                 component="img"
-                                                src={`${CONFIG.apiHostUrl}/${img}`}
-                                                sx={{
-                                                   width: 64,
-                                                   height: 64,
-                                                   borderRadius: 1,
-                                                   cursor: 'pointer',
-                                                   objectFit: 'cover',
-                                                }}
-                                                onClick={() =>
-                                                   window.open(
-                                                      `${CONFIG.apiHostUrl}/${img}`,
-                                                      '_blank'
-                                                   )
-                                                }
+                                                src={`${CONFIG.apiHostUrl}/${bank.logo}`}
+                                                alt={bank.bank_name}
+                                                sx={{ width: 36, height: 36, objectFit: 'contain' }}
                                              />
-                                          ))}
+                                          )}
+                                          <Typography variant="subtitle2">
+                                             {bank.bank_name}
+                                          </Typography>
                                        </Box>
-                                    )}
-                                 </TimelineContent>
-                              </TimelineItem>
-                           );
-                        })}
-                     </Timeline>
-                  </CardContent>
-               </Card>
+                                       <Typography variant="h6" fontWeight={700}>
+                                          {bank.account_number}
+                                       </Typography>
+                                       <Typography variant="body2" color="text.secondary">
+                                          a.n. {bank.account_owner}
+                                       </Typography>
+                                       {bank.description && (
+                                          <Typography
+                                             variant="caption"
+                                             color="text.secondary"
+                                             display="block"
+                                          >
+                                             {bank.description}
+                                          </Typography>
+                                       )}
+                                    </Card>
+                                 ))
+                              ) : (
+                                 <Typography variant="body2" color="text.secondary">
+                                    Info rekening belum tersedia, hubungi admin.
+                                 </Typography>
+                              )}
+
+                              <Button
+                                 fullWidth
+                                 variant="outlined"
+                                 size="large"
+                                 sx={{ mt: 1 }}
+                                 startIcon={<Iconify icon="solar:upload-bold" />}
+                                 onClick={() => setUploadModalOpen(true)}
+                              >
+                                 Upload Bukti Transfer
+                              </Button>
+                           </Box>
+                        </CardContent>
+                     </Card>
+                  )}
+
+                  {/* Status History */}
+                  <Card>
+                     <CardHeader title="Status History" />
+                     <CardContent>
+                        <Timeline position="right" sx={{ pl: 0 }}>
+                           {logs.map((log, index) => {
+                              const images = parseImages(log.images);
+                              const isLast = index === logs.length - 1;
+
+                              return (
+                                 <TimelineItem
+                                    key={log.id}
+                                    sx={{ '&:before': { display: 'none' } }}
+                                 >
+                                    <TimelineSeparator>
+                                       <TimelineDot color={statusColor[log.status || 'default']} />
+                                       {!isLast && <TimelineConnector />}
+                                    </TimelineSeparator>
+                                    <TimelineContent>
+                                       <Typography variant="subtitle2">
+                                          {statusLabel[log.status || 'Unknown']}
+                                       </Typography>
+                                       <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          display="block"
+                                          sx={{ mb: 1 }}
+                                       >
+                                          {dayjs(log.created_at).format('DD MMM YYYY HH:mm')}
+                                       </Typography>
+                                       <Typography
+                                          variant="body2"
+                                          sx={{ color: 'text.secondary', mb: 1 }}
+                                       >
+                                          {log.reason}
+                                       </Typography>
+                                       {images.length > 0 && (
+                                          <Box
+                                             sx={{
+                                                display: 'flex',
+                                                gap: 1,
+                                                flexWrap: 'wrap',
+                                                mt: 1,
+                                             }}
+                                          >
+                                             {images.map((img, idx) => (
+                                                <Box
+                                                   key={idx}
+                                                   component="img"
+                                                   src={`${CONFIG.apiHostUrl}/${img}`}
+                                                   sx={{
+                                                      width: 64,
+                                                      height: 64,
+                                                      borderRadius: 1,
+                                                      cursor: 'pointer',
+                                                      objectFit: 'cover',
+                                                   }}
+                                                   onClick={() =>
+                                                      window.open(
+                                                         `${CONFIG.apiHostUrl}/${img}`,
+                                                         '_blank'
+                                                      )
+                                                   }
+                                                />
+                                             ))}
+                                          </Box>
+                                       )}
+                                    </TimelineContent>
+                                 </TimelineItem>
+                              );
+                           })}
+                        </Timeline>
+                     </CardContent>
+                  </Card>
+               </Stack>
             </Grid>
          </Grid>
+
+         {/* Upload Payment Proof Modal */}
+         <UploadPaymentProofModal
+            open={uploadModalOpen}
+            onClose={() => setUploadModalOpen(false)}
+            orderId={id as string}
+         />
       </DashboardContent>
    );
 }

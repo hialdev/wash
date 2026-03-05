@@ -43,6 +43,7 @@ const ICONS = {
    analytics: icon('ic-analytics'),
    dashboard: icon('ic-dashboard'),
    service: icon('ic-label'),
+   voucher: icon('ic-label'),
 };
 
 // ----------------------------------------------------------------------
@@ -115,6 +116,15 @@ export const navData: NavSectionProps['data'] = [
             children: [
                { title: 'List', path: paths.dashboard.service.root },
                { title: 'Create', path: paths.dashboard.service.new },
+            ],
+         },
+         {
+            title: 'Vouchers',
+            path: paths.dashboard.voucher.root,
+            icon: ICONS.voucher,
+            children: [
+               { title: 'List', path: paths.dashboard.voucher.root },
+               { title: 'Create', path: paths.dashboard.voucher.new },
             ],
          },
          {

@@ -27,6 +27,11 @@ interface ServiceState {
    deleteServiceCategory: (id: string) => Promise<any>;
 
    fetchCatalogServices: (params?: any) => Promise<any>;
+
+   fetchServiceCogs: (serviceId: string) => Promise<any>;
+   createServiceCog: (data: any) => Promise<any>;
+   updateServiceCog: (id: string, data: any) => Promise<any>;
+   deleteServiceCog: (id: string) => Promise<any>;
 }
 
 const useServiceStore = create<ServiceState>((set) => ({
@@ -124,6 +129,26 @@ const useServiceStore = create<ServiceState>((set) => ({
       } finally {
          set({ isLoading: false });
       }
+   },
+
+   fetchServiceCogs: async (serviceId: string) => {
+      const res = await protectedApi.get(`/service-cogs?service_id=${serviceId}`);
+      return res.data;
+   },
+
+   createServiceCog: async (data: any) => {
+      const res = await protectedApi.post('/service-cogs', data);
+      return res.data;
+   },
+
+   updateServiceCog: async (id: string, data: any) => {
+      const res = await protectedApi.post(`/service-cogs/${id}`, data);
+      return res.data;
+   },
+
+   deleteServiceCog: async (id: string) => {
+      const res = await protectedApi.delete(`/service-cogs/${id}`);
+      return res.data;
    },
 }));
 

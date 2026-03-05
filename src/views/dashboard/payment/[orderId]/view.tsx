@@ -14,6 +14,7 @@ import Card from '@mui/material/Card';
 import { paths } from 'src/routes/al/paths';
 
 import useOrderStore from 'src/stores/order';
+import useBankStore from 'src/stores/bank';
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { toast } from 'src/components/snackbar';
@@ -52,6 +53,7 @@ export function PaymentView() {
    const orderId = params.orderId as string;
 
    const { getMyOrder } = useOrderStore();
+   const { banks, fetchBanks } = useBankStore();
 
    const [loading, setLoading] = useState<boolean>(true);
    const [order, setOrder] = useState<Order | null>(null);
@@ -75,6 +77,7 @@ export function PaymentView() {
    useEffect(() => {
       if (orderId) {
          fetchOrder();
+         fetchBanks({ is_active: true });
       }
    }, [orderId]);
 
@@ -230,23 +233,57 @@ export function PaymentView() {
                         Transfer ke rekening berikut dan upload bukti pembayaran:
                      </Typography>
                      {/* Bank Account Details */}
-                     <Card variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'background.neutral' }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                           Bank BCA
-                        </Typography>
-                        <Typography variant="h6" gutterBottom>
-                           1234567890
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                           a.n. Nama Pemilik Rekening
-                        </Typography>
-                     </Card>
+                     {banks.length > 0 ? (
+                        banks.map((bank) => (
+                           <Card
+                              key={bank.id}
+                              variant="outlined"
+                              sx={{ p: 2, mb: 2, bgcolor: 'background.neutral' }}
+                           >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                                 {bank.logo && (
+                                    <Box
+                                       component="img"
+                                       src={`${process.env.NEXT_PUBLIC_API_HOST}/${bank.logo}`}
+                                       alt={bank.bank_name}
+                                       sx={{ width: 40, height: 40, objectFit: 'contain' }}
+                                    />
+                                 )}
+                                 <Typography variant="subtitle2">{bank.bank_name}</Typography>
+                              </Box>
+                              <Typography variant="h6" fontWeight={700} gutterBottom>
+                                 {bank.account_number}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                 a.n. {bank.account_owner}
+                              </Typography>
+                              {bank.description && (
+                                 <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    display="block"
+                                    mt={0.5}
+                                 >
+                                    {bank.description}
+                                 </Typography>
+                              )}
+                           </Card>
+                        ))
+                     ) : (
+                        <Card
+                           variant="outlined"
+                           sx={{ p: 2, mb: 2, bgcolor: 'background.neutral' }}
+                        >
+                           <Typography variant="body2" color="text.secondary">
+                              Info rekening belum tersedia, silakan hubungi admin.
+                           </Typography>
+                        </Card>
+                     )}
                      <Button
                         fullWidth
                         variant="outlined"
                         size="large"
                         onClick={() => setUploadModalOpen(true)}
-                        startIcon={<Iconify icon="solar:upload-bold" />}
                      >
                         Upload Bukti Pembayaran
                      </Button>
@@ -375,7 +412,6 @@ export function PaymentView() {
             onClose={() => setUploadModalOpen(false)}
             orderId={orderId}
          />
-
       </DashboardContent>
    );
 }

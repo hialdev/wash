@@ -165,6 +165,23 @@ export default function OrderDetailsView() {
                               </Box>
                            </Box>
                            <Divider sx={{ borderStyle: 'dashed' }} />
+                           {order.discount_amount > 0 && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                 <Box>
+                                    <Typography variant="body2" color="error">
+                                       Discount
+                                    </Typography>
+                                    {order.voucher && (
+                                       <Typography variant="caption" color="text.secondary">
+                                          Voucher: {order.voucher.code}
+                                       </Typography>
+                                    )}
+                                 </Box>
+                                 <Typography variant="subtitle2" color="error">
+                                    -{fCurrency(order.discount_amount || 0)}
+                                 </Typography>
+                              </Box>
+                           )}
                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                               <Typography variant="subtitle1">Total Bill</Typography>
                               <Typography variant="subtitle1" color="primary.main">

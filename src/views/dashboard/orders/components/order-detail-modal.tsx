@@ -27,6 +27,7 @@ import { paths } from 'src/routes/al/paths';
 import { fCurrency } from 'src/utils/format-number';
 import { CONFIG } from 'src/global-config';
 import useOrderLogStatusStore from 'src/stores/order-log-status';
+import { Button } from '@mui/material';
 
 // ----------------------------------------------------------------------
 
@@ -264,10 +265,7 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
                                           variant="outlined"
                                           startIcon={<Iconify icon="mdi:timeline-clock-outline" />}
                                           component={RouterLink}
-                                          href={paths.dashboard.order.serviceTracking(
-                                             order.id,
-                                             item.service_id
-                                          )}
+                                          href={paths.dashboard.order.details(order.id ?? '')}
                                           sx={{ mt: 1 }}
                                        >
                                           Track Process

@@ -1,21 +1,19 @@
-import type { IService } from 'src/types/service';
+import type { IVoucher } from 'src/types/voucher';
 
 import { useBoolean } from 'minimal-shared/hooks';
 
-import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
 import TableRow from '@mui/material/TableRow';
 import Checkbox from '@mui/material/Checkbox';
 import TableCell from '@mui/material/TableCell';
 import IconButton from '@mui/material/IconButton';
 import ListItemText from '@mui/material/ListItemText';
-import { Typography } from '@mui/material';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { fCurrency } from 'src/utils/format-number';
-import { fTime, fDate } from 'src/utils/format-time';
+import { fDate } from 'src/utils/format-time';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -24,19 +22,18 @@ import { ConfirmDialog } from 'src/components/custom-dialog';
 // ----------------------------------------------------------------------
 
 type Props = {
-   row: IService;
+   row: IVoucher;
    selected: boolean;
    onSelectRow: () => void;
    onDeleteRow: () => void;
-   onManageCogs: (id: string, name: string) => void;
 };
 
-export function ServiceTableRow({ row, selected, onSelectRow, onDeleteRow, onManageCogs }: Props) {
+export function VoucherTableRow({ row, selected, onSelectRow, onDeleteRow }: Props) {
    const router = useRouter();
    const confirmDialog = useBoolean();
 
    const handleEdit = () => {
-      router.push(paths.dashboard.service.edit(row.id));
+      router.push(paths.dashboard.voucher.edit(row.id));
    };
 
    return (
@@ -48,53 +45,36 @@ export function ServiceTableRow({ row, selected, onSelectRow, onDeleteRow, onMan
 
             <TableCell>
                <ListItemText
-                  primary={
-                     <Typography
-                        variant="body2"
-                        noWrap
-                        sx={{
-                           cursor: 'pointer',
-                           color: 'text.primary',
-                           '&:hover': { textDecoration: 'underline' },
-                        }}
-                        onClick={() => router.push(paths.dashboard.service.details(row.id))}
-                     >
-                        {row.name}
-                     </Typography>
-                  }
+                  primary={row.code}
                   secondary={row.description}
                   slotProps={{
+                     primary: { sx: { typography: 'subtitle2' } },
                      secondary: { sx: { color: 'text.disabled' }, noWrap: true },
                   }}
                />
             </TableCell>
 
             <TableCell>
-               <Box sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
-                  <span>{fDate(row.created_at)}</span>
-                  <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
-                     {fTime(row.created_at)}
-                  </Box>
-               </Box>
+               {row.discount_type === 'percentage'
+                  ? `${row.discount_value}%`
+                  : fCurrency(row.discount_value)}
             </TableCell>
 
-            <TableCell>
-               {fCurrency(row.price)} / {row.unit}
-            </TableCell>
+            <TableCell>{row.quota ? `${row.used_count} / ${row.quota}` : 'Unlimited'}</TableCell>
 
             <TableCell>
                <Label variant="soft" color={row.is_active ? 'info' : 'default'}>
                   {row.is_active ? 'Active' : 'Inactive'}
                </Label>
+               <br />
+               <Label variant="soft" color={row.is_public ? 'success' : 'warning'} sx={{ mt: 0.5 }}>
+                  {row.is_public ? 'Public' : 'Private'}
+               </Label>
             </TableCell>
 
-            <TableCell align="right" sx={{ px: 1, whiteSpace: 'nowrap' }}>
-               <Tooltip title="Manage BOM" placement="top" arrow>
-                  <IconButton color="primary" onClick={() => onManageCogs(row.id, row.name)}>
-                     <Iconify icon="solar:box-bold" />
-                  </IconButton>
-               </Tooltip>
+            <TableCell>{row.valid_until ? fDate(row.valid_until) : 'No Expiry'}</TableCell>
 
+            <TableCell align="right" sx={{ px: 1, whiteSpace: 'nowrap' }}>
                <Tooltip title="Edit" placement="top" arrow>
                   <IconButton color="default" onClick={handleEdit}>
                      <Iconify icon="solar:pen-bold" />
@@ -113,7 +93,7 @@ export function ServiceTableRow({ row, selected, onSelectRow, onDeleteRow, onMan
             open={confirmDialog.value}
             onClose={confirmDialog.onFalse}
             title="Delete"
-            content="Are you sure want to delete this service?"
+            content="Are you sure want to delete this voucher?"
             action={
                <IconButton
                   color="error"

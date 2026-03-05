@@ -25,6 +25,7 @@ import { CONFIG } from 'src/global-config';
 import { fCurrency } from 'src/utils/format-number';
 
 import useOrderStore from 'src/stores/order';
+import useServiceStore from 'src/stores/service';
 import useRawMaterialStore from 'src/stores/raw-material';
 import useRawMaterialMovementStore from 'src/stores/raw-material-movement';
 
@@ -53,22 +54,54 @@ export default function UsedRawMaterialView() {
    const router = useRouter();
 
    const { detail: orderDetail } = useOrderStore();
+   const { fetchServiceCogs, getService } = useServiceStore();
    const { getAll } = useRawMaterialStore();
    const { submitOrderUsage, getOrderMovements, movements } = useRawMaterialMovementStore();
 
    const [order, setOrder] = useState<any>(null);
    const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
    const [rows, setRows] = useState<RowItem[]>([emptyRow()]);
+   const [bomAggregated, setBomAggregated] = useState<any[]>([]); // To store the grouped Cogs based on order_services
    const [fetching, setFetching] = useState(true);
    const [submitting, setSubmitting] = useState(false);
 
    const fetchData = useCallback(async () => {
       setFetching(true);
       try {
-         const [ord, mats] = await Promise.all([orderDetail({ id: orderId }), getAll()]);
-         setOrder(ord.data || ord.orders || ord);
+         const [ordResult, mats] = await Promise.all([orderDetail({ id: orderId }), getAll()]);
+         const ordData = ordResult.data || ordResult.orders || ordResult;
+         setOrder(ordData);
          setRawMaterials(mats);
          await getOrderMovements({ orderId });
+
+         // Fetch BOM/cogs for each service in the order
+         if (ordData?.order_services?.length > 0) {
+            const aggregated: any[] = [];
+            for (const orderSvc of ordData.order_services) {
+               try {
+                  const cogsRes = await fetchServiceCogs(orderSvc.service_id);
+                  const cogs = cogsRes?.data || [];
+                  if (cogs.length > 0) {
+                     let svcTitle = orderSvc.service?.name;
+
+                     aggregated.push({
+                        serviceName: svcTitle,
+                        serviceQty: orderSvc.qty,
+                        materials: cogs.map((c: any) => ({
+                           raw_material_id: c.raw_material_id,
+                           title: c.raw_material?.title || 'Unknown Material',
+                           unit: c.raw_material?.unit || c.unit,
+                           cogQty: c.qty,
+                           calculatedQty: c.qty * orderSvc.qty,
+                        })),
+                     });
+                  }
+               } catch (error) {
+                  console.error('Failed to fetch cogs for service', orderSvc.service_id);
+               }
+            }
+            setBomAggregated(aggregated);
+         }
       } finally {
          setFetching(false);
       }
@@ -120,6 +153,38 @@ export default function UsedRawMaterialView() {
          toast.error(err?.response?.data?.message ?? 'Gagal menyimpan data');
       } finally {
          setSubmitting(false);
+      }
+   };
+
+   const handleUseBOM = () => {
+      const newRows: RowItem[] = [];
+
+      // Group materials together since multiple services might share the same material
+      const groupedMap = new Map<string, number>();
+
+      bomAggregated.forEach((aggItem) => {
+         aggItem.materials.forEach((mat: any) => {
+            const currentObjQty = groupedMap.get(mat.raw_material_id) || 0;
+            groupedMap.set(mat.raw_material_id, currentObjQty + mat.calculatedQty);
+         });
+      });
+
+      groupedMap.forEach((qty, rmId) => {
+         const rmSource = rawMaterials.find((r) => r.id === rmId);
+         if (rmSource) {
+            newRows.push({
+               rawMaterial: rmSource,
+               qty: Number(qty.toFixed(3)),
+               notes: 'Applied from BOM',
+            });
+         }
+      });
+
+      if (newRows.length > 0) {
+         setRows(newRows);
+         toast.success('BOM diterapkan ke form');
+      } else {
+         toast.error('Tidak ada material yang bisa dicocokkan dari BOM');
       }
    };
 
@@ -281,6 +346,53 @@ export default function UsedRawMaterialView() {
             </Card>
          )}
 
+         {/* ── Usulan dari BOM (Jika Ada) ── */}
+         {bomAggregated.length > 0 && (
+            <Card sx={{ mb: 3, bgcolor: 'background.neutral' }}>
+               <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider' }}
+               >
+                  <Typography variant="subtitle1">Isi Penggunaan dari BOM</Typography>
+                  <Button
+                     variant="contained"
+                     size="small"
+                     color="primary"
+                     startIcon={<Iconify icon="solar:check-read-bold" />}
+                     onClick={handleUseBOM}
+                  >
+                     Gunakan BOM
+                  </Button>
+               </Stack>
+               <Box sx={{ p: 3, pt: 2 }}>
+                  <Stack spacing={2} divider={<Divider sx={{ borderStyle: 'dashed' }} />}>
+                     {bomAggregated.map((agg, index) => (
+                        <Box key={index}>
+                           <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                              {agg.serviceName} - {agg.serviceQty} unit
+                           </Typography>
+                           <Stack spacing={0.5} sx={{ pl: 2 }}>
+                              {agg.materials.map((mat: any, idx: number) => (
+                                 <Typography key={idx} variant="body2" color="text.secondary">
+                                    - {mat.title}, qty digunakan = {mat.cogQty} x {agg.serviceQty} ={' '}
+                                    <Box
+                                       component="span"
+                                       sx={{ color: 'text.primary', fontWeight: 600 }}
+                                    >
+                                       {mat.calculatedQty} {mat.unit}
+                                    </Box>
+                                 </Typography>
+                              ))}
+                           </Stack>
+                        </Box>
+                     ))}
+                  </Stack>
+               </Box>
+            </Card>
+         )}
+
          {/* ── Form Input ── */}
          <Card sx={{ p: 3 }}>
             <Box sx={{ mb: 2 }}>
@@ -418,7 +530,7 @@ export default function UsedRawMaterialView() {
                               <TableCell align="center">
                                  {row.rawMaterial ? (
                                     <Chip
-                                       label={rem !== null ? rem.toFixed(3) : '—'}
+                                       label={rem !== null ? rem.toFixed(2) : '—'}
                                        size="small"
                                        color={
                                           isOver

@@ -33,12 +33,10 @@ export default async function AuthGuard({
 
       redirect(paths.auth.signIn);
    }
-
-   // Permission checks removed - handled by backend middleware
-   // Frontend just ensures user is authenticated
-   // Backend API calls will enforce permissions via ACL middleware
-
-   console.log(`[${timestamp}] [AUTH-GUARD] ✅ Auth passed, rendering children`);
-   console.log(`[${timestamp}] [AUTH-GUARD] ========== AuthGuard END (success) ==========\n`);
-   return <>{children}</>;
+   
+   if (session){
+      console.log(`[${timestamp}] [AUTH-GUARD] ✅ Auth passed, rendering children`);
+      console.log(`[${timestamp}] [AUTH-GUARD] ========== AuthGuard END (success) ==========\n`);
+      return <>{children}</>;
+   }
 }

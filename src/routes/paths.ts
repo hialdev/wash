@@ -139,6 +139,12 @@ export const paths = {
          details: (id: string) => `${ROOTS.DASHBOARD}/services/${id}`,
          edit: (id: string) => `${ROOTS.DASHBOARD}/services/${id}/edit`,
       },
+      voucher: {
+         root: `${ROOTS.DASHBOARD}/vouchers`,
+         new: `${ROOTS.DASHBOARD}/vouchers/new`,
+         list: `${ROOTS.DASHBOARD}/vouchers/list`,
+         edit: (id: string) => `${ROOTS.DASHBOARD}/vouchers/${id}/edit`,
+      },
       invoice: {
          root: `${ROOTS.DASHBOARD}/invoice`,
          new: `${ROOTS.DASHBOARD}/invoice/new`,

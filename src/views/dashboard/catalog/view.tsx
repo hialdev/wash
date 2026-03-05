@@ -24,7 +24,9 @@ import { paths } from 'src/routes/al/paths';
 import useCartStore from 'src/stores/cart';
 import useProductStore from 'src/stores/product';
 import useServiceStore from 'src/stores/service';
+import useVoucherStore from 'src/stores/voucher';
 import useProductTypeStore from 'src/stores/product-type';
+import type { IVoucher } from 'src/types/voucher';
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { toast } from 'src/components/snackbar';
@@ -52,10 +54,12 @@ export function CatalogView() {
       fetchServiceCategories,
       categories: serviceCategories,
    } = useServiceStore();
+   const { fetchVouchers } = useVoucherStore();
    const { getItemCount } = useCartStore();
 
    const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
    const [loading, setLoading] = useState<boolean>(true);
+   const [publicVouchers, setPublicVouchers] = useState<IVoucher[]>([]);
 
    // Selection states
    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -118,6 +122,18 @@ export function CatalogView() {
    useEffect(() => {
       getAllProductTypes();
       fetchServiceCategories();
+      const getPublic = async () => {
+         try {
+            const res = await fetchVouchers({ is_public: true, is_active: true });
+            if (res?.data) {
+               setPublicVouchers(res.data);
+            }
+         } catch (err) {
+            console.error(err);
+         }
+      };
+      getPublic();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
    }, []);
 
    // Fetch data when filter/tab changes
@@ -165,6 +181,49 @@ export function CatalogView() {
                links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Catalog' }]}
                sx={{ mb: { xs: 3, md: 5 } }}
             />
+
+            {publicVouchers.length > 0 && (
+               <Card sx={{ p: 2, mb: 3, bgcolor: 'primary.lighter', color: 'primary.darker' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                     <Iconify icon="solar:ticket-sale-bold-duotone" width={24} sx={{ mr: 1 }} />
+                     <Typography variant="subtitle1">Available Vouchers</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
+                     {publicVouchers.map((v) => (
+                        <Box
+                           key={v.id}
+                           sx={{
+                              minWidth: 200,
+                              p: 1.5,
+                              borderRadius: 1,
+                              border: '1px dashed currentColor',
+                              bgcolor: 'common.white',
+                           }}
+                        >
+                           <Typography variant="subtitle2" sx={{ mb: 0.5, color: 'text.primary' }}>
+                              {v.code}
+                           </Typography>
+                           <Typography
+                              variant="caption"
+                              sx={{ display: 'block', color: 'text.secondary' }}
+                           >
+                              {v.discount_type === 'percentage'
+                                 ? `${v.discount_value}% OFF`
+                                 : `Rp ${v.discount_value} OFF`}
+                           </Typography>
+                           {v.min_purchase && v.min_purchase > 0 ? (
+                              <Typography
+                                 variant="caption"
+                                 sx={{ opacity: 0.8, color: 'text.secondary' }}
+                              >
+                                 Min. spend: Rp {v.min_purchase}
+                              </Typography>
+                           ) : null}
+                        </Box>
+                     ))}
+                  </Box>
+               </Card>
+            )}
 
             <Box sx={{ mb: 3 }}>
                <Tabs value={activeTab} onChange={(_, val) => setActiveTab(val)} sx={{ mb: 2 }}>
