@@ -72,6 +72,14 @@ export interface Order {
    xendit_invoice_id?: string;
    xendit_invoice_url?: string;
    payment_proof?: string;
+   is_agent_order?: boolean;
+   agent_id?: string;
+   user?: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+   };
    order_products?: OrderProduct[];
    order_services?: OrderService[];
    order_logs?: any[];

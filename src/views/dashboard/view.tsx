@@ -30,6 +30,7 @@ import useAdjustmentStore from 'src/stores/adjustment';
 import useProductTypeStore from 'src/stores/product-type';
 import useStockMovementStore from 'src/stores/stock-movement';
 import useFavoriteStore from 'src/stores/favorite';
+import useAgentStore from 'src/stores/agent';
 
 import useAuthStore from 'src/stores/auth';
 
@@ -61,6 +62,7 @@ export function DashboardView() {
    const productTypeStore = useProductTypeStore();
    const stockMovementStore = useStockMovementStore();
    const favoriteStore = useFavoriteStore();
+   const agentStore = useAgentStore();
 
    const { user, authData } = useAuthStore();
 
@@ -156,6 +158,14 @@ export function DashboardView() {
                fetch: () => settingStore.all(),
             },
             // Customer Widgets
+            {
+               title: 'Agents',
+               path: paths.dashboard.agents.root,
+               icon: 'solar:user-id-bold-duotone',
+               color: 'warning',
+               permission: 'Read Agent',
+               fetch: () => agentStore.all({ page: 1, limit: 1 }),
+            },
             {
                title: 'Catalog',
                path: paths.dashboard.customer_orders.catalog,

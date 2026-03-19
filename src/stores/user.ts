@@ -27,6 +27,7 @@ interface UserState {
    update: ({id, data} : {id: string, data: UserData}) => Promise<any>;
    assign: ({id, role_id} : {id: string, role_id: string}) => Promise<any>;
    delete: ({id} : {id: string}) => Promise<any>;
+   getDeliveryAddresses: ({id} : {id: string}) => Promise<any>;
 }
 
 const useUserStore = create<UserState>()(
@@ -42,6 +43,10 @@ const useUserStore = create<UserState>()(
             } catch (error) {
                return {success:false, message:error};
             }
+         },
+         getDeliveryAddresses: async ({id}) => {
+            const response = await protectedApi.get(`/users/${id}/delivery-addresses`);
+            return response.data;
          },
          add: async (data) => {
             try {

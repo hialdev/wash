@@ -186,6 +186,40 @@ export const navData: NavSectionProps['data'] = [
       ],
    },
    /**
+    * Agent Management
+    */
+   {
+      subheader: 'Agent Management',
+      requiredPermissions: ['Read Agent', 'agent_order', 'Read Finance'],
+      items: [
+         {
+            title: 'Agents',
+            path: paths.dashboard.agents.root,
+            icon: icon('solar:users-group-two-rounded-bold-duotone'),
+            requiredPermissions: ['Read Agent'],
+         },
+         {
+            title: 'Order Agent',
+            path: paths.dashboard.agents.order,
+            icon: icon('solar:shop-bold-duotone'),
+            requiredPermissions: ['agent_order'],
+         },
+         {
+            title: 'Pelanggan Saya',
+            path: paths.dashboard.agents.myCustomers,
+            icon: icon('solar:user-id-bold-duotone'),
+            requiredPermissions: ['agent_order'],
+         },
+         {
+            title: 'Report Finance',
+            path: paths.dashboard.agents.report,
+            icon: icon('solar:graph-bold-duotone'),
+            requiredPermissions: ['Read Finance'],
+         },
+      ],
+   },
+
+   /**
     * Sales
     */
    {

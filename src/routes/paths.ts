@@ -190,5 +190,12 @@ export const paths = {
             edit: `${ROOTS.DASHBOARD}/tour/${MOCK_ID}/edit`,
          },
       },
+      agents: {
+         root: `${ROOTS.DASHBOARD}/agents`,
+         report: `${ROOTS.DASHBOARD}/agents/report`,
+         order: `${ROOTS.DASHBOARD}/agents/order`,
+         checkout: `${ROOTS.DASHBOARD}/agents/checkout`,
+         myCustomers: `${ROOTS.DASHBOARD}/agents/my-customers`,
+      },
    },
 };

@@ -118,6 +118,11 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
          <TableRow hover>
             <TableCell>
                <Typography variant="subtitle2">{row.order_number}</Typography>
+               {row.is_agent_order && row.user?.name && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                     Customer: {row.user.name}
+                  </Typography>
+               )}
             </TableCell>
 
             <TableCell>

@@ -200,6 +200,26 @@ export const navData: NavSectionProps['data'] = [
     * Item state
     */
    {
+      subheader: 'Agent',
+      items: [
+         {
+            title: 'Agent',
+            path: paths.dashboard.agents.root,
+            icon: ICONS.user,
+            allowedRoles: ['agent'],
+            children: [
+               { title: 'Checkout Order', path: paths.dashboard.agents.checkout },
+               { title: 'Pelanggan Saya', path: paths.dashboard.agents.myCustomers },
+               { title: 'Laporan', path: paths.dashboard.agents.report },
+               { title: 'Riwayat Order', path: paths.dashboard.agents.order },
+            ],
+         },
+      ],
+   },
+   /**
+    * Item state
+    */
+   {
       subheader: 'Misc',
       items: [
          {

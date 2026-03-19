@@ -31,9 +31,10 @@ import { fCurrency } from 'src/utils/format-number';
 type Props = {
    open: boolean;
    onClose: () => void;
+   checkoutHref?: string;
 };
 
-export function CartModal({ open, onClose }: Props) {
+export function CartModal({ open, onClose, checkoutHref }: Props) {
    const router = useRouter();
    const {
       items,
@@ -108,7 +109,7 @@ export function CartModal({ open, onClose }: Props) {
             return;
          }
 
-         router.push(paths.dashboard.customer_orders.checkout);
+         router.push(checkoutHref || paths.dashboard.customer_orders.checkout);
          onClose();
       } catch (error) {
          toast.error('Gagal memvalidasi stock');

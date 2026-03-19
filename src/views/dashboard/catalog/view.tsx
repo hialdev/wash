@@ -42,7 +42,7 @@ import { AddServiceToCartModal } from './components/add-service-to-cart-modal';
 
 // ----------------------------------------------------------------------
 
-export function CatalogView() {
+export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?: string; title?: string }) {
    const cartModal = useBoolean();
    const addToCartModal = useBoolean();
    const addServiceToCartModal = useBoolean();
@@ -177,8 +177,8 @@ export function CatalogView() {
       <>
          <DashboardContent>
             <CustomBreadcrumbs
-               heading="Catalog"
-               links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Catalog' }]}
+               heading={title}
+               links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: title }]}
                sx={{ mb: { xs: 3, md: 5 } }}
             />
 
@@ -404,7 +404,7 @@ export function CatalogView() {
          )}
 
          {/* Cart Modal */}
-         <CartModal open={cartModal.value} onClose={cartModal.onFalse} />
+         <CartModal open={cartModal.value} onClose={cartModal.onFalse} checkoutHref={checkoutHref} />
       </>
    );
 }

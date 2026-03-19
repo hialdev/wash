@@ -159,10 +159,15 @@ export default function MyOrderDetailsView() {
                               />
                            </Box>
                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                                  Customer
                               </Typography>
                               <Box sx={{ textAlign: 'right' }}>
+                                 {order.is_agent_order && order.user?.name && (
+                                    <Typography variant="subtitle2" color="primary.main" sx={{ mb: 0.2 }}>
+                                       {order.user.name} (Customer)
+                                    </Typography>
+                                 )}
                                  <Typography variant="subtitle2">{order.phone_receiver}</Typography>
                                  <Typography variant="caption" color="text.secondary">
                                     {order.address_receiver}

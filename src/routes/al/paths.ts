@@ -154,6 +154,18 @@ export const paths = {
          usedRawMaterial: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}/used-raw-material`,
       },
 
+      agents: {
+         root: `${ROOTS.DASHBOARD}/agents`,
+         create: `${ROOTS.DASHBOARD}/agents/create`,
+         edit: (id: string) => `${ROOTS.DASHBOARD}/agents/${id}/edit`,
+         report: `${ROOTS.DASHBOARD}/agents/report`,
+         order: `${ROOTS.DASHBOARD}/agents/order`,
+         checkout: `${ROOTS.DASHBOARD}/agents/checkout`,
+         commission: (id: string) => `${ROOTS.DASHBOARD}/agents/${id}/commission`,
+         myCustomers: `${ROOTS.DASHBOARD}/agents/my-customers`,
+      },
+
+
       vouchers: {
          root: `${ROOTS.DASHBOARD}/vouchers`,
          new: `${ROOTS.DASHBOARD}/vouchers/new`,
