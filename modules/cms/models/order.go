@@ -26,6 +26,10 @@ type Order struct {
 	Voucher        *Voucher   `json:"voucher,omitempty" gorm:"foreignKey:VoucherID"`
 	DiscountAmount *float64   `json:"discount_amount" gorm:"type:decimal(15,2);default:0"`
 
+	IsAgentOrder *bool      `json:"is_agent_order" gorm:"type:boolean;default:false"`
+	AgentID      *uuid.UUID `json:"agent_id,omitempty" gorm:"type:uuid"`
+	Agent        *Agent     `json:"agent,omitempty" gorm:"foreignKey:AgentID"`
+
 	OrderProducts []OrderProduct   `json:"order_products,omitempty" gorm:"foreignKey:OrderID"`
 	OrderServices []OrderService   `json:"order_services,omitempty" gorm:"foreignKey:OrderID"`
 	OrderLogs     []OrderLogStatus `json:"order_logs,omitempty" gorm:"foreignKey:OrderID"`
@@ -39,6 +43,9 @@ type OrderProduct struct {
 	Order        *Order     `json:"order,omitempty" gorm:"foreignKey:OrderID"`
 	PriceAtOrder *float64   `json:"price_at_order" gorm:"type:decimal(15,2);not null"`
 	Qty          *int       `json:"qty" gorm:"not null"`
+
+	AgentCommissionRate   *float64 `json:"agent_commission_rate,omitempty" gorm:"type:decimal(15,2)"` // Historical rate
+	AgentCommissionAmount *float64 `json:"agent_commission_amount,omitempty" gorm:"type:decimal(15,2)"` // Calculated amount at checkout
 
 	// For individual tracking products
 	RequestedLength *float64 `json:"requested_length,omitempty" gorm:"type:decimal(15,3)"`

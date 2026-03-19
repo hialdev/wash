@@ -17,6 +17,8 @@ type User struct {
 	PhoneVerifiedAt *bool      `json:"phone_verified_at,omitempty" validate:"omitempty,boolean"`
 	Image           *string    `json:"image" gorm:"text;omitempty"`
 	RoleID          *uuid.UUID `json:"role_id,omitempty"`
+	CreatedBy       *uuid.UUID `json:"created_by,omitempty" gorm:"type:uuid;index"`
 
 	Role Role `json:"role,omitempty" gorm:"foreignKey:RoleID;constraint:SET NULL;"`
 }
+

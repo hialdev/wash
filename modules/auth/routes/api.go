@@ -77,6 +77,7 @@ func SetupAuthRoutes(app *fiber.App, db *gorm.DB) {
 	usr.Post("/", userHandler.Create)
 	usr.Use(middlewares.DoACL("Update User")).Post("/:id", userHandler.Update)
 	usr.Use(middlewares.DoACL("Read User")).Get("/:id", userHandler.GetUser)
+	usr.Use(middlewares.DoACL("Read User")).Get("/:id/delivery-addresses", userHandler.GetUserAddresses)
 	usr.Use(middlewares.DoACL("Assign User")).Post("/:id/assign", userHandler.AssignRole)
 
 	roles := handlers.NewRoleHandler(db)
@@ -106,4 +107,17 @@ func SetupAuthRoutes(app *fiber.App, db *gorm.DB) {
 	da.Patch("/:id", deliveryAddress.Update)
 	da.Delete("/:id", deliveryAddress.Delete)
 	da.Patch("/:id/set-primary", deliveryAddress.SetPrimary)
+
+	// --------------- My Customers Routes (agent-scoped)
+	myCustomer := handlers.NewMyCustomerHandler(db)
+	mc := api.Group("/my-customers")
+	mc.Use(middlewares.JWTProtected())
+	mc.Use(middlewares.DoACL("agent_order")).Get("/", myCustomer.GetMyCustomers)
+	mc.Use(middlewares.DoACL("agent_order")).Post("/", myCustomer.AddMyCustomer)
+	mc.Use(middlewares.DoACL("agent_order")).Patch("/:id", myCustomer.UpdateMyCustomer)
+	mc.Use(middlewares.DoACL("agent_order")).Get("/:id/delivery-addresses", myCustomer.GetMyCustomerAddresses)
+	mc.Use(middlewares.DoACL("agent_order")).Post("/:id/delivery-addresses", myCustomer.AddMyCustomerAddress)
+	mc.Use(middlewares.DoACL("agent_order")).Patch("/:id/delivery-addresses/:addr_id", myCustomer.UpdateMyCustomerAddress)
+	mc.Use(middlewares.DoACL("agent_order")).Delete("/:id/delivery-addresses/:addr_id", myCustomer.DeleteMyCustomerAddress)
+	mc.Use(middlewares.DoACL("agent_order")).Patch("/:id/delivery-addresses/:addr_id/set-primary", myCustomer.SetMyCustomerAddressPrimary)
 }

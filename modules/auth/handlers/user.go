@@ -435,3 +435,18 @@ func (h *UserHandler) AssignRole(c *fiber.Ctx) error {
 
 	return utils.RespApi(c, "ok", "User "+userName+" sekarang memiliiki Role "+role.Name, user)
 }
+
+func (h *UserHandler) GetUserAddresses(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	userID, err := uuid.Parse(idStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "User ID yang diberikan tidak valid", nil)
+	}
+
+	var addresses []models.DeliveryAddress
+	if err := h.DB.Where("user_id = ?", userID).Order("is_primary DESC, created_at DESC").Find(&addresses).Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal mendapatkan data alamat pelanggan", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Berhasil mengambil daftar alamat pelanggan", addresses)
+}

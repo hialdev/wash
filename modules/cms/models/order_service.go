@@ -18,6 +18,9 @@ type OrderService struct {
 	Subtotal     *float64   `json:"subtotal" gorm:"type:decimal(15,2);not null"`
 	Notes        *string    `json:"notes,omitempty" gorm:"type:text"`
 
+	AgentCommissionRate   *float64 `json:"agent_commission_rate,omitempty" gorm:"type:decimal(15,2)"` // Historical rate
+	AgentCommissionAmount *float64 `json:"agent_commission_amount,omitempty" gorm:"type:decimal(15,2)"` // Calculated amount at checkout
+
 	// Relationships
 	ServiceProcess []OrderServiceProcess `json:"service_process,omitempty" gorm:"foreignKey:OrderServiceID"`
 	ServiceDetail  *OrderServiceDetail   `json:"service_detail,omitempty" gorm:"foreignKey:OrderServiceID"`

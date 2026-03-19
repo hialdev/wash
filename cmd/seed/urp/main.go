@@ -2,7 +2,8 @@ package main
 
 import (
 	"aldev/connection"
-	"aldev/modules/auth/models"
+	authModels "aldev/modules/auth/models"
+	cmsModels "aldev/modules/cms/models"
 	"aldev/utils"
 	"fmt"
 	"log"
@@ -76,9 +77,9 @@ func main() {
 
 	fmt.Println("\n💾 ========== MEMBUAT PERMISSION ==========")
 
-	var perms []models.Permission
+	var perms []authModels.Permission
 	for _, name := range uniqueACLs {
-		p := models.Permission{
+		p := authModels.Permission{
 			Name:        name,
 			Description: strPtr("Can " + name),
 		}
@@ -97,85 +98,138 @@ func main() {
 		}
 	}
 
-	fmt.Printf("\n✅ Total permission dibuat: %d\n", len(perms))
+	fmt.Println("\n👑 ========== MENYIAPKAN ROLE & PERMISSION ==========")
 
-	fmt.Println("\n👑 ========== MENYIAPKAN ROLE SUPER ADMIN ==========")
+	// 1. Define Permission Groups
+	baseAccess := []string{"Read Product", "Read Service", "Read Voucher"}
+	agentAccess := []string{"agent_order", "Read Dashboard", "Read Finance"}
+	customerAccess := []string{}
+	// allAccess will be uniqueACLs
 
-	var superAdmin models.Role
+	var basePerms []authModels.Permission
+	db.Where("name IN ?", baseAccess).Find(&basePerms)
+
+	var agentPerms []authModels.Permission
+	db.Where("name IN ? OR name IN ?", baseAccess, agentAccess).Find(&agentPerms)
+
+	var customerPerms []authModels.Permission
+	db.Where("name IN ? OR name IN ?", baseAccess, customerAccess).Find(&customerPerms)
+
+	// current 'perms' variable contains all uniqueACLs (allAccess)
+
+	// 2. Setup Super Admin
+	var superAdmin authModels.Role
 	if err := db.Where("name = ?", "Super Admin").First(&superAdmin).Error; err != nil {
-		superAdmin = models.Role{
+		superAdmin = authModels.Role{
 			Name:        "Super Admin",
 			Description: strPtr("Full system access"),
 		}
-		if err := db.Create(&superAdmin).Error; err != nil {
-			log.Fatal("❌ Gagal buat role Super Admin:", err)
-		}
-		if superAdmin.ID == uuid.Nil {
-			log.Fatal("❌ Role Super Admin dibuat tapi ID kosong!")
-		}
-		fmt.Printf("🏷️ Role Super Admin dibuat (ID=%s)\n", superAdmin.ID.String())
-	} else {
-		fmt.Printf("ℹ️ Role Super Admin sudah ada (ID=%s)\n", superAdmin.ID.String())
+		db.Create(&superAdmin)
 	}
+	db.Model(&superAdmin).Association("Permissions").Replace(perms)
+	fmt.Printf("✅ Role Super Admin: %d perms\n", len(perms))
 
-	fmt.Println("\n🔗 ========== MENGIKAT PERMISSION KE ROLE ==========")
-
-	if len(perms) > 0 {
-		if err := db.Model(&superAdmin).Association("Permissions").Replace(perms); err != nil {
-			log.Fatal("❌ Gagal mengikat permission ke role:", err)
+	// 3. Setup Admin
+	var adminRole authModels.Role
+	if err := db.Where("name = ?", "Admin").First(&adminRole).Error; err != nil {
+		adminRole = authModels.Role{
+			Name:        "Admin",
+			Description: strPtr("Administrator access"),
 		}
-		fmt.Printf("🔗 %d permission diikat ke Super Admin (Role ID=%s)\n", len(perms), superAdmin.ID.String())
+		db.Create(&adminRole)
 	}
+	db.Model(&adminRole).Association("Permissions").Replace(perms)
+	fmt.Printf("✅ Role Admin: %d perms\n", len(perms))
 
-	// Verifikasi langsung di DB
-	var count int64
-	db.Table("role_permissions").Where("role_id = ?", superAdmin.ID).Count(&count)
-	fmt.Printf("🔍 [VERIFIKASI] Entri di role_permissions: %d\n", count)
-
-	if count == 0 && len(perms) > 0 {
-		log.Fatal("❌ FATAL: Tidak ada entri di role_permissions setelah pengikatan!")
+	// 4. Setup Agent
+	var agentRole authModels.Role
+	if err := db.Where("name = ?", "Agent").First(&agentRole).Error; err != nil {
+		agentRole = authModels.Role{
+			Name:        "Agent",
+			Description: strPtr("Agent access with focused permissions"),
+		}
+		db.Create(&agentRole)
 	}
+	db.Model(&agentRole).Association("Permissions").Replace(agentPerms)
+	fmt.Printf("✅ Role Agent: %d perms\n", len(agentPerms))
 
-	fmt.Println("\n👤 ========== MENYIAPKAN USER SUPER ADMIN ==========")
+	// 5. Setup Customer
+	var customerRole authModels.Role
+	if err := db.Where("name = ?", "Customer").First(&customerRole).Error; err != nil {
+		customerRole = authModels.Role{
+			Name:        "Customer",
+			Description: strPtr("Default customer access"),
+		}
+		db.Create(&customerRole)
+	}
+	db.Model(&customerRole).Association("Permissions").Replace(customerPerms)
+	fmt.Printf("✅ Role Customer: %d perms\n", len(customerPerms))
 
-	var user models.User
-	if err := db.Where("username = ?", "hialdev").First(&user).Error; err != nil {
-		user = models.User{
+	fmt.Println("\n👤 ========== MENYIAPKAN USER SEEDER ==========")
+
+	// A. Super Admin User
+	var saUser authModels.User
+	if err := db.Where("username = ?", "hialdev").First(&saUser).Error; err != nil {
+		saUser = authModels.User{
 			Name:     strPtr("Hi AL Dev"),
 			Username: strPtr("hialdev"),
 			Email:    strPtr("mna.official12@gmail.com"),
 			Phone:    strPtr("+6289671052050"),
 			RoleID:   &superAdmin.ID,
 		}
-		if err := db.Create(&user).Error; err != nil {
-			log.Fatal("❌ Gagal buat user Super Admin:", err)
-		}
+		db.Create(&saUser)
 		fmt.Println("👑 User Super Admin dibuat: hialdev")
 	} else {
-		db.Model(&user).Update("role_id", superAdmin.ID)
-		fmt.Println("ℹ️ User Super Admin sudah ada (role diperbarui)")
+		db.Model(&saUser).Update("role_id", superAdmin.ID)
+		fmt.Println("ℹ️ User Super Admin diperbarui")
 	}
 
-	fmt.Println("\n🛒 ========== MENYIAPKAN ROLE CUSTOMER ==========")
+	// B. Sample Agent User
+	var agentUser authModels.User
+	if err := db.Where("username = ?", "agent_luta").First(&agentUser).Error; err != nil {
+		agentUser = authModels.User{
+			Name:     strPtr("Agent Luta Seeder"),
+			Username: strPtr("agent_luta"),
+			Email:    strPtr("agent_luta@mail.com"),
+			Phone:    strPtr("+62896765423"),
+			RoleID:   &agentRole.ID,
+		}
+		if err := db.Create(&agentUser).Error; err == nil {
+			fmt.Println("👔 User Agent dibuat: agent_luta")
 
-	var customerRole models.Role
-	if err := db.Where("name = ?", "Customer").First(&customerRole).Error; err != nil {
-		customerRole = models.Role{
-			Name:        "Customer",
-			Description: strPtr("Default role untuk pelanggan"),
+			// create agent profile
+			code := "LUTA001"
+			commRate := 10.0
+			isActive := true
+			agentProfile := cmsModels.Agent{
+				Name:           agentUser.Name,
+				Code:           &code,
+				Phone:          agentUser.Phone,
+				Email:          agentUser.Email,
+				UserID:         &agentUser.ID,
+				CommissionRate: &commRate,
+				IsActive:       &isActive,
+			}
+			db.Create(&agentProfile)
+			fmt.Println("📑 Agent Profile LUTA001 dibuat")
 		}
-		if err := db.Create(&customerRole).Error; err != nil {
-			log.Fatal("❌ Gagal buat role Customer:", err)
-		}
-		fmt.Println("✅ Role Customer dibuat")
 	} else {
-		fmt.Println("ℹ️ Role Customer sudah ada")
+		db.Model(&agentUser).Updates(map[string]interface{}{
+			"role_id": agentRole.ID,
+			"email":   "agent_luta@mail.com",
+			"phone":   "+62896765423",
+		})
+		fmt.Println("ℹ️ User Agent diperbarui")
 	}
+
+	// Verifikasi langsung di DB
+	var count int64
+	db.Table("role_permissions").Where("role_id = ?", superAdmin.ID).Count(&count)
 
 	fmt.Println("\n🎉 ========== SEEDING SELESAI ==========")
-	fmt.Printf("✅ Permission: %d\n", len(perms))
 	fmt.Printf("✅ Role Super Admin ID: %s\n", superAdmin.ID.String())
-	fmt.Printf("✅ Entri role_permissions: %d\n", count)
+	fmt.Printf("✅ Role Agent ID: %s\n", agentRole.ID.String())
+	fmt.Printf("✅ Entri role_permissions SA: %d\n", count)
 	fmt.Println("✅ Sistem permission siap digunakan!")
 }
 

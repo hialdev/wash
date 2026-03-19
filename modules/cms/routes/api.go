@@ -248,6 +248,33 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	// Submit order raw material usage (under orders group)
 	od.Use(middlewares.DoACL("Update Order")).Post("/:id/raw-material-usage", rmMovements.SubmitOrderUsage)
 
+	// Agents routes
+	agents := handlers.NewAgentHandler(db)
+	agentRoutes := api.Group("/agents")
+	agentRoutes.Use(middlewares.JWTProtected())
+	agentRoutes.Get("/my-agent/:id", agents.GetMyAgent)
+	agentRoutes.Use(middlewares.DoACL("Read Agent")).Get("/", agents.GetAllAgents)
+	agentRoutes.Use(middlewares.DoACL("Read Agent")).Get("/:id", agents.GetAgent)
+	agentRoutes.Use(middlewares.DoACL("Add Agent")).Post("/", agents.AddAgent)
+	agentRoutes.Use(middlewares.DoACL("Update Agent")).Patch("/:id", agents.UpdateAgent)
+	agentRoutes.Use(middlewares.DoACL("Delete Agent")).Delete("/:id", agents.DeleteAgent)
+	agentRoutes.Use(middlewares.DoACL("Update Agent")).Post("/:id/generate-user", agents.GenerateUser)
+
+	agentRoutes.Use(middlewares.DoACL("Read Agent")).Get("/:id/commissions", handlers.AgentCommissionHandler{DB: db}.GetCommissions)
+	agentRoutes.Use(middlewares.DoACL("Update Agent")).Post("/:id/commissions/bulk", handlers.AgentCommissionHandler{DB: db}.BulkUpdateCommissions)
+
+	// Agent Order routes (restricted to agent_order role/permission)
+	agentOrderHandler := handlers.NewAgentOrderHandler(db)
+	agentOrderRoutes := api.Group("/agent-orders")
+	agentOrderRoutes.Use(middlewares.JWTProtected())
+	agentOrderRoutes.Use(middlewares.DoACL("agent_order")).Post("/", agentOrderHandler.AddAgentOrder)
+
+	// Finance Agent Report routes
+	financeAgentHandler := handlers.NewFinanceAgentHandler(db)
+	financeAgent := api.Group("/finance-agent")
+	financeAgent.Use(middlewares.JWTProtected())
+	financeAgent.Use(middlewares.DoACL("Read Finance")).Get("/", financeAgentHandler.GetAgentFinanceReport)
+
 	// Journal Routes
 	journals := handlers.NewJournalHandler(db)
 	journal := api.Group("/journals")

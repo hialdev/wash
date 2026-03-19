@@ -9,151 +9,36 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-type MyOrderHandler struct {
+type AgentOrderInput struct {
+	UserID          *uuid.UUID          `json:"user_id" validate:"required"`
+	AgentID         *uuid.UUID          `json:"agent_id" validate:"required"`
+	AddressReceiver *string             `json:"address_receiver" validate:"required"`
+	PhoneReceiver   *string             `json:"phone_receiver" validate:"required"`
+	Notes           *string             `json:"notes,omitempty"`
+	VoucherCode     *string             `json:"voucher_code,omitempty"`
+	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
+	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
+}
+
+type AgentOrderHandler struct {
 	DB *gorm.DB
 }
 
-func NewMyOrderHandler(db *gorm.DB) *MyOrderHandler {
-	return &MyOrderHandler{DB: db}
+func NewAgentOrderHandler(db *gorm.DB) *AgentOrderHandler {
+	return &AgentOrderHandler{DB: db}
 }
 
-func (h *MyOrderHandler) GetUserIDFromToken(c *fiber.Ctx) (string, error) {
-	// 🔑 Ambil token dari cookie
-	tokenStr := c.Cookies("accessToken")
-	if tokenStr == "" {
-		fmt.Println("❌ No accessToken cookie found")
-		return "", utils.RespApi(c, "perm", "Token tidak ditemukan", nil)
-	}
-	fmt.Printf("✅ Token from cookie: %.50s...\n", tokenStr)
-
-	// 🔐 Parse token
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fiber.NewError(fiber.StatusUnauthorized, "Signing method tidak valid")
-		}
-		return []byte(os.Getenv("APP_SECRET")), nil
-	})
-
-	if err != nil || !token.Valid {
-		fmt.Printf("❌ Invalid token: %v\n", err)
-		return "", utils.RespApi(c, "perm", "Token tidak valid", nil)
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		fmt.Println("❌ Failed to cast claims to MapClaims")
-		return "", utils.RespApi(c, "perm", "Claim token tidak valid", nil)
-	}
-
-	if claims["type"] != "access" {
-		fmt.Printf("❌ Token type is not 'access', got: %v\n", claims["type"])
-		return "", utils.RespApi(c, "perm", "Token bukan access token", nil)
-	}
-
-	userID, _ := claims["user_id"].(string)
-
-	return userID, nil
-}
-
-// GetMyOrders - Fetch orders strictly for the logged-in user
-func (h *MyOrderHandler) GetMyOrders(c *fiber.Ctx) error {
-	// Get user ID from JWT middleware context
-	userID, err := h.GetUserIDFromToken(c)
-
-	if err != nil {
-		return utils.RespApi(c, "unauth", "User ID not found in token", nil)
-	}
-
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	search := strings.ToLower(c.Query("search", ""))
-	sort := c.Query("sort", "created_at")
-	orderDir := c.Query("order", "desc")
-	status := c.Query("status", "")
-
-	offset := (page - 1) * limit
-
-	// Find agent if exists to include orders they placed for others
-	var agent models.Agent
-	h.DB.Where("user_id = ?", userID).First(&agent)
-
-	// Base query
-	db := h.DB.Distinct().
-		Preload("OrderProducts.Product").
-		Preload("OrderServices.Service"). // Preload services
-		Preload("OrderLogs").
-		Preload("Voucher").
-		Preload("User") // Preload customer info
-
-	if agent.ID != uuid.Nil {
-		db = db.Where("user_id = ? OR agent_id = ?", userID, agent.ID)
-	} else {
-		db = db.Where("user_id = ?", userID)
-	}
-
-	// Filter search
-	if search != "" {
-		db = db.Where("LOWER(order_number) LIKE ?", "%"+search+"%")
-	}
-
-	// Filter by status
-	if status != "" {
-		db = db.Where("status = ?", status)
-	}
-
-	// Count total
-	var total int64
-	if err := db.Model(&models.Order{}).Count(&total).Error; err != nil {
-		return utils.RespApi(c, "ise", "Gagal hitung total", err.Error())
-	}
-
-	// Sorting
-	validSortFields := map[string]string{
-		"total_bill": "total_bill",
-		"created_at": "created_at",
-	}
-	sortBy, ok := validSortFields[sort]
-	if !ok {
-		sortBy = "created_at"
-	}
-	db = db.Order(fmt.Sprintf("%s %s", sortBy, orderDir))
-
-	// Fetch data
-	var orders []models.Order
-	if err := db.Offset(offset).Limit(limit).Find(&orders).Error; err != nil {
-		return utils.RespApi(c, "ise", "Gagal ambil data", err.Error())
-	}
-
-	totalPages := (total + int64(limit) - 1) / int64(limit)
-
-	result := fiber.Map{
-		"orders": orders,
-		"pagination": fiber.Map{
-			"total":      total,
-			"page":       page,
-			"limit":      limit,
-			"totalPages": totalPages,
-		},
-	}
-
-	return utils.RespApi(c, "ok", "Berhasil mendapatkan data Pesanan Saya", result)
-}
-
-// CreateMyOrder - Create order strictly for the logged-in user
-func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
-	var input CustomerOrderInput
+func (h *AgentOrderHandler) AddAgentOrder(c *fiber.Ctx) error {
+	var input AgentOrderInput
 
 	if err := c.BodyParser(&input); err != nil {
 		return utils.RespApi(c, "bad", "Request Body tidak valid", err.Error())
@@ -171,18 +56,6 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		return utils.RespApi(c, "bad", "Order harus memiliki minimal 1 produk atau layanan", nil)
 	}
 
-	// Get user ID from JWT middleware context
-	userID, err := h.GetUserIDFromToken(c)
-	if err != nil {
-		return utils.RespApi(c, "unauth", "User ID not found in token", nil)
-	}
-
-	parsedUserID, err := uuid.Parse(userID)
-	if err != nil {
-		return utils.RespApi(c, "bad", "User ID tidak valid", err.Error())
-	}
-
-	// Calculate total bill and validate stock
 	var totalBill float64 = 0
 
 	// Prepare Product Items
@@ -209,32 +82,22 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		var subtotal float64
 		priceAtOrder := *product.SalePrice
 
-		// Check tracking mode
 		if product.TrackingMode != nil && *product.TrackingMode == "individual" {
-			// Individual tracking: check inventory items for qty x requested_length
 			if productInput.RequestedLength == nil || *productInput.RequestedLength <= 0 {
 				return utils.RespApi(c, "bad", fmt.Sprintf("Requested length required untuk produk %s", *product.Title), nil)
 			}
-			if productInput.Qty == nil || *productInput.Qty <= 0 {
-				return utils.RespApi(c, "bad", fmt.Sprintf("Qty required untuk produk %s", *product.Title), nil)
-			}
 
-			// Get all available inventory items that can fulfill the requested length
-			var items []models.InventoryItem
+			var item models.InventoryItem
 			err := h.DB.Where("product_id = ? AND status = 'available' AND remaining_length >= ?",
 				productInput.ProductID, *productInput.RequestedLength).
 				Order("remaining_length ASC").
-				Find(&items).Error
+				First(&item).Error
 
 			if err != nil {
+				if err == gorm.ErrRecordNotFound {
+					return utils.RespApi(c, "bad", fmt.Sprintf("Stock %s tidak mencukupi", *product.Title), nil)
+				}
 				return utils.RespApi(c, "ise", "Gagal cek stock", err.Error())
-			}
-
-			// Check if we have enough items to fulfill the qty requirement
-			availableQty := len(items)
-			if availableQty < *productInput.Qty {
-				return utils.RespApi(c, "bad", fmt.Sprintf("Stock %s tidak mencukupi (tersedia: %d item dengan %.2f+ %s, diminta: %d item x %.2f %s)",
-					*product.Title, availableQty, *productInput.RequestedLength, *product.MeasurementUnit, *productInput.Qty, *productInput.RequestedLength, *product.MeasurementUnit), nil)
 			}
 
 			subtotal = *productInput.RequestedLength * priceAtOrder * float64(*productInput.Qty)
@@ -259,12 +122,10 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 			})
 
 		} else {
-			// Simple tracking: check qty
 			if productInput.Qty == nil || *productInput.Qty <= 0 {
 				return utils.RespApi(c, "bad", fmt.Sprintf("Qty required untuk produk %s", *product.Title), nil)
 			}
 
-			// Check stock availability
 			if product.Stock == nil || *product.Stock < *productInput.Qty {
 				return utils.RespApi(c, "bad", fmt.Sprintf("Stock product %s tidak mencukupi", *product.Title), nil)
 			}
@@ -290,7 +151,6 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		}
 	}
 
-	// Prepare Service Items
 	var orderServiceItems []struct {
 		ServiceID    *uuid.UUID
 		Qty          *float64
@@ -331,6 +191,20 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		})
 	}
 
+	// Make sure agent exists
+	var agent models.Agent
+	if err := h.DB.First(&agent, "id = ?", input.AgentID).Error; err != nil {
+		return utils.RespApi(c, "bad", "Agent tidak ditemukan", err.Error())
+	}
+
+	var commissionRates []models.AgentCommissionRate
+	h.DB.Where("agent_id = ?", agent.ID).Find(&commissionRates)
+
+	commissionMap := make(map[uuid.UUID]models.AgentCommissionRate)
+	for _, cr := range commissionRates {
+		commissionMap[*cr.IssuerID] = cr
+	}
+
 	orderNumber := fmt.Sprintf("ORD-%s-%d", time.Now().Format("20060102"), time.Now().Unix())
 
 	tx := h.DB.Begin()
@@ -340,7 +214,6 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		}
 	}()
 
-	// Handle Voucher
 	var voucherID *uuid.UUID
 	var discountAmount float64
 
@@ -387,7 +260,7 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 			if voucher.MaxDiscount != nil && *voucher.MaxDiscount > 0 && discountAmount > *voucher.MaxDiscount {
 				discountAmount = *voucher.MaxDiscount
 			}
-		} else { // nominal
+		} else {
 			discountAmount = *voucher.DiscountValue
 		}
 
@@ -398,7 +271,6 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		totalBill -= discountAmount
 		voucherID = &voucher.ID
 
-		// Increment used count
 		if err := tx.Model(&models.Voucher{}).Where("id = ?", voucher.ID).UpdateColumn("used_count", gorm.Expr("used_count + ?", 1)).Error; err != nil {
 			tx.Rollback()
 			return utils.RespApi(c, "ise", "Gagal update penggunaan voucher", err.Error())
@@ -406,9 +278,11 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 	}
 
 	statusWaitingPayment := "waiting_payment"
+	isAgentOrder := true
+
 	order := models.Order{
 		OrderNumber:     &orderNumber,
-		UserID:          &parsedUserID,
+		UserID:          input.UserID,
 		AddressReceiver: input.AddressReceiver,
 		PhoneReceiver:   input.PhoneReceiver,
 		Status:          &statusWaitingPayment,
@@ -416,6 +290,8 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		TotalBill:       &totalBill,
 		VoucherID:       voucherID,
 		DiscountAmount:  &discountAmount,
+		IsAgentOrder:    &isAgentOrder,
+		AgentID:         input.AgentID,
 	}
 
 	if err := tx.Create(&order).Error; err != nil {
@@ -423,15 +299,33 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		return utils.RespApi(c, "ise", "Tidak dapat membuat Order", err.Error())
 	}
 
-	// Create order products
 	for _, item := range orderItems {
+		var commRate float64
+		var commAmount float64
+
+		if cr, ok := commissionMap[*item.ProductID]; ok {
+			commRate = *cr.Rate
+			if cr.RateType != nil && *cr.RateType == "fixed" {
+				commAmount = *cr.Rate * float64(*item.Qty)
+			} else {
+				commAmount = *item.Subtotal * (*cr.Rate / 100)
+			}
+		} else {
+			if agent.CommissionRate != nil {
+				commRate = *agent.CommissionRate
+				commAmount = *item.Subtotal * (*agent.CommissionRate / 100)
+			}
+		}
+
 		orderProduct := models.OrderProduct{
-			OrderID:         &order.ID,
-			ProductID:       item.ProductID,
-			PriceAtOrder:    item.PriceAtOrder,
-			Qty:             item.Qty,
-			RequestedLength: item.RequestedLength,
-			MeasurementUnit: item.MeasurementUnit,
+			OrderID:               &order.ID,
+			ProductID:             item.ProductID,
+			Qty:                   item.Qty,
+			RequestedLength:       item.RequestedLength,
+			MeasurementUnit:       item.MeasurementUnit,
+			PriceAtOrder:          item.PriceAtOrder,
+			AgentCommissionRate:   &commRate,
+			AgentCommissionAmount: &commAmount,
 		}
 
 		if err := tx.Create(&orderProduct).Error; err != nil {
@@ -440,15 +334,33 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		}
 	}
 
-	// Create order services
 	for _, item := range orderServiceItems {
+		var commRate float64
+		var commAmount float64
+
+		if cr, ok := commissionMap[*item.ServiceID]; ok {
+			commRate = *cr.Rate
+			if cr.RateType != nil && *cr.RateType == "fixed" {
+				commAmount = *cr.Rate * float64(*item.Qty)
+			} else {
+				commAmount = *item.Subtotal * (*cr.Rate / 100)
+			}
+		} else {
+			if agent.CommissionRate != nil {
+				commRate = *agent.CommissionRate
+				commAmount = *item.Subtotal * (*agent.CommissionRate / 100)
+			}
+		}
+
 		orderService := models.OrderService{
-			OrderID:      &order.ID,
-			ServiceID:    item.ServiceID,
-			Qty:          item.Qty,
-			PriceAtOrder: item.PriceAtOrder,
-			Subtotal:     item.Subtotal,
-			Notes:        item.Notes,
+			OrderID:               &order.ID,
+			ServiceID:             item.ServiceID,
+			Qty:                   item.Qty,
+			PriceAtOrder:          item.PriceAtOrder,
+			Subtotal:              item.Subtotal,
+			Notes:                 item.Notes,
+			AgentCommissionRate:   &commRate,
+			AgentCommissionAmount: &commAmount,
 		}
 
 		if err := tx.Create(&orderService).Error; err != nil {
@@ -457,8 +369,7 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		}
 	}
 
-	// Create Xendit invoice
-	xenditInvoiceID, xenditInvoiceURL, err := createXenditInvoiceLocal(order, orderItems, orderServiceItems)
+	xenditInvoiceID, xenditInvoiceURL, err := h.createXenditInvoice(order, orderItems, orderServiceItems)
 	if err != nil {
 		tx.Rollback()
 		return utils.RespApi(c, "ise", "Gagal membuat invoice Xendit", err.Error())
@@ -472,7 +383,7 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		return utils.RespApi(c, "ise", "Gagal update order dengan invoice Xendit", err.Error())
 	}
 
-	if err := CreateOrderLog(tx, order.ID, "waiting_payment", GetDefaultReason("waiting_payment"), nil, &parsedUserID); err != nil {
+	if err := CreateOrderLog(tx, order.ID, "waiting_payment", GetDefaultReason("waiting_payment"), nil, nil); err != nil {
 		tx.Rollback()
 		return utils.RespApi(c, "ise", "Gagal membuat order log", err.Error())
 	}
@@ -482,51 +393,13 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 	}
 
 	h.DB.Preload("OrderProducts.Product").
-		Preload("OrderServices.Service"). // Preload services
+		Preload("OrderServices.Service").
 		First(&order, "id = ?", order.ID)
 
-	return utils.RespApi(c, "ok", "Berhasil membuat pesanan", order)
+	return utils.RespApi(c, "ok", "Berhasil membuat data Agent Order", order)
 }
 
-// GetMyOrderDetail - Fetch a specific order strictly for the logged-in user
-func (h *MyOrderHandler) GetMyOrderDetail(c *fiber.Ctx) error {
-	// Get user ID from JWT middleware context
-	userID, err := h.GetUserIDFromToken(c)
-	if err != nil {
-		return utils.RespApi(c, "unauth", "User ID not found in token", nil)
-	}
-
-	orderID := c.Params("id")
-
-	// Find agent if exists to include orders they placed for others
-	var agent models.Agent
-	h.DB.Where("user_id = ?", userID).First(&agent)
-
-	var order models.Order
-	query := h.DB.Preload("OrderProducts.Product").
-		Preload("OrderServices.Service"). // Preload services
-		Preload("OrderLogs").
-		Preload("Voucher").
-		Preload("User") // Preload customer info
-
-	if agent.ID != uuid.Nil {
-		query = query.Where("id = ? AND (user_id = ? OR agent_id = ?)", orderID, userID, agent.ID)
-	} else {
-		query = query.Where("id = ? AND user_id = ?", orderID, userID)
-	}
-
-	if err := query.First(&order).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return utils.RespApi(c, "nf", "Pesanan tidak ditemukan", nil)
-		}
-		return utils.RespApi(c, "ise", "Gagal mengambil data pesanan", err.Error())
-	}
-
-	return utils.RespApi(c, "ok", "Berhasil mendapatkan detail pesanan", order)
-}
-
-// Helper duplicated from OrderHandler to avoid cross-struct dependency without refactoring everything
-func createXenditInvoiceLocal(order models.Order, orderItems []struct {
+func (h *AgentOrderHandler) createXenditInvoice(order models.Order, orderItems []struct {
 	ProductID       *uuid.UUID
 	Qty             *int
 	RequestedLength *float64
@@ -542,15 +415,10 @@ func createXenditInvoiceLocal(order models.Order, orderItems []struct {
 	Notes        *string
 	Service      models.Service
 }) (string, string, error) {
-	// Prepare invoice items
 	var items []map[string]interface{}
 
-	// Add Product Items
 	for _, item := range orderItems {
 		itemName := *item.Product.Title
-
-		// For individual tracking products, show requested_length in item name
-		// And price per item for Xendit = requested_length * price_per_unit
 		var quantity float64
 		var price float64
 
@@ -570,7 +438,6 @@ func createXenditInvoiceLocal(order models.Order, orderItems []struct {
 		})
 	}
 
-	// Add Service Items
 	for _, item := range orderServiceItems {
 		items = append(items, map[string]interface{}{
 			"name":     *item.Service.Name + " (Service)",
@@ -579,12 +446,11 @@ func createXenditInvoiceLocal(order models.Order, orderItems []struct {
 		})
 	}
 
-	// Prepare invoice payload
 	payload := map[string]interface{}{
 		"external_id":      order.ID.String(),
 		"amount":           *order.TotalBill,
-		"description":      fmt.Sprintf("Order %s", *order.OrderNumber),
-		"invoice_duration": 86400, // 24 hours
+		"description":      fmt.Sprintf("Agent Order %s", *order.OrderNumber),
+		"invoice_duration": 86400,
 		"currency":         "IDR",
 		"items":            items,
 	}

@@ -63,6 +63,8 @@ func main() {
 		&CMSModels.SettingGroup{},
 		&CMSModels.Setting{},
 		&CMSModels.ExampleRich{},
+		&CMSModels.Agent{},
+		&CMSModels.AgentCommissionRate{},
 
 		// E-Commerce
 		&CMSModels.ProductType{},
