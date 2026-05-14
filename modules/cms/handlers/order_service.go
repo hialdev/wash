@@ -104,7 +104,7 @@ func (h *OrderServiceHandler) AddServiceProcess(c *fiber.Ctx) error {
 		ProcessType:    &processType,
 		Description:    &description,
 		Images:         imagesJSON,
-		CreatedBy:      createdBy,
+		CreatedByID:    createdBy,
 	}
 
 	if err := h.DB.Create(&process).Error; err != nil {

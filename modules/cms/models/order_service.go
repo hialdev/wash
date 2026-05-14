@@ -35,8 +35,8 @@ type OrderServiceProcess struct {
 	ProcessType    *string          `json:"process_type" gorm:"type:varchar(50);not null"` // pickup, processing, delivery, done, other
 	Description    *string          `json:"description,omitempty" gorm:"type:text"`
 	Images         *string          `json:"images,omitempty" gorm:"type:text"` // JSON Array
-	CreatedBy      *uuid.UUID       `json:"created_by" gorm:"type:uuid"`
-	Creator        *authModels.User `json:"creator,omitempty" gorm:"foreignKey:CreatedBy;references:ID"`
+	CreatedByID    *uuid.UUID       `json:"created_by_id" gorm:"type:uuid"`
+	Creator        *authModels.User `json:"creator,omitempty" gorm:"foreignKey:CreatedByID;references:ID"`
 }
 
 type OrderServiceDetail struct {
