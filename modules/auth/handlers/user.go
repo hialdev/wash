@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -43,6 +44,30 @@ func NewUserHandler(db *gorm.DB) *UserHandler {
 	return &UserHandler{DB: db}
 }
 
+func (h *UserHandler) getCurrentUserRole(c *fiber.Ctx) (string, error) {
+	userIDRaw := c.Locals("user_id")
+	if userIDRaw == nil {
+		return "", fmt.Errorf("unauthorized")
+	}
+	userIDStr, ok := userIDRaw.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid user id type")
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return "", err
+	}
+
+	var user models.User
+	if err := h.DB.Preload("Role").First(&user, "id = ?", userID).Error; err != nil {
+		return "", err
+	}
+	if user.RoleID == nil {
+		return "", fmt.Errorf("role not found")
+	}
+	return strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", "")), nil
+}
+
 func (r *UserHandler) generateCacheKey(page, limit int, search, sort, order string) string {
 	return fmt.Sprintf(
 		"users:page:%d:limit:%d:search:%s:sort:%s:order:%s",
@@ -76,11 +101,27 @@ func (r *UserHandler) GetUsers(c *fiber.Ctx) error {
 
 	db := r.DB.Model(&models.User{}).Preload("Role")
 
-	// --- Filter by role name
+	// --- Filter employees (Kasir, Manager) if requester is Manager or Owner
+	currentUserRole, _ := r.getCurrentUserRole(c)
+	if currentUserRole == "manager" || currentUserRole == "owner" {
+		if roleParam == "" {
+			// Default list for Employees
+			db = db.Where("users.role_id IN (SELECT id FROM roles WHERE LOWER(name) IN ('kasir', 'manager'))")
+		} else {
+			// Restrict role scopes to only permitted subsets
+			db = db.Where("users.role_id IN (SELECT id FROM roles WHERE LOWER(name) IN ('kasir', 'manager', 'customer'))")
+		}
+	}
+
+	// --- Filter by role name (case-insensitive)
 	if roleParam != "" {
 		roleList := strings.Split(roleParam, ",")
+		normalizedRoles := make([]string, len(roleList))
+		for i, r := range roleList {
+			normalizedRoles[i] = strings.ToLower(strings.TrimSpace(r))
+		}
 		db = db.Joins("JOIN roles ON roles.id = users.role_id").
-			Where("roles.name IN ?", roleList)
+			Where("LOWER(roles.name) IN ?", normalizedRoles)
 	}
 
 	// --- Filter search
@@ -102,11 +143,12 @@ func (r *UserHandler) GetUsers(c *fiber.Ctx) error {
 
 	// --- Sorting (whitelisted)
 	validSortFields := map[string]string{
-		"id":       "users.id",
-		"name":     "users.name",
-		"username": "users.username",
-		"email":    "users.email",
-		"phone":    "users.phone",
+		"id":         "users.id",
+		"name":       "users.name",
+		"username":   "users.username",
+		"email":      "users.email",
+		"phone":      "users.phone",
+		"created_at": "users.created_at",
 	}
 	sortBy, ok := validSortFields[sort]
 	if !ok {
@@ -181,6 +223,40 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 		return utils.RespApi(c, "bad", "Validasi gagal! "+err.Error(), err.Error())
 	}
 
+	// --- Role policy validations
+	currentUserRole, _ := h.getCurrentUserRole(c)
+	if currentUserRole == "manager" {
+		if input.RoleID != nil && *input.RoleID != "" {
+			roleUUID, err := uuid.Parse(*input.RoleID)
+			if err != nil {
+				return utils.RespApi(c, "bad", "Role ID tidak valid", err.Error())
+			}
+			var targetRole models.Role
+			if err := h.DB.First(&targetRole, "id = ?", roleUUID).Error; err != nil {
+				return utils.RespApi(c, "bad", "Role tidak ditemukan", err.Error())
+			}
+			targetRoleName := strings.ToLower(strings.ReplaceAll(targetRole.Name, " ", ""))
+			if targetRoleName != "kasir" && targetRoleName != "customer" {
+				return utils.RespApi(c, "bad", "Manager hanya boleh memilih Role Kasir atau Customer", nil)
+			}
+		}
+	} else if currentUserRole == "owner" {
+		if input.RoleID != nil && *input.RoleID != "" {
+			roleUUID, err := uuid.Parse(*input.RoleID)
+			if err != nil {
+				return utils.RespApi(c, "bad", "Role ID tidak valid", err.Error())
+			}
+			var targetRole models.Role
+			if err := h.DB.First(&targetRole, "id = ?", roleUUID).Error; err != nil {
+				return utils.RespApi(c, "bad", "Role tidak ditemukan", err.Error())
+			}
+			targetRoleName := strings.ToLower(strings.ReplaceAll(targetRole.Name, " ", ""))
+			if targetRoleName != "kasir" && targetRoleName != "manager" && targetRoleName != "customer" {
+				return utils.RespApi(c, "bad", "Owner hanya boleh memilih Role Kasir, Manager, atau Customer", nil)
+			}
+		}
+	}
+
 	newUser := models.User{
 		Name:     &input.Name,
 		Username: &input.Username,
@@ -194,13 +270,24 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 		newUser.Email = &input.Email
 	}
 
-	// Handle RoleID jika ada dan tidak kosong
+	// Handle RoleID: jika tidak ada, fallback ke REGIST_ROLE_DEFAULT
 	if input.RoleID != nil && *input.RoleID != "" {
 		roleUUID, err := uuid.Parse(*input.RoleID)
 		if err != nil {
 			return utils.RespApi(c, "bad", "Parsing role uuid gagal", err.Error())
 		}
-		newUser.RoleID = &roleUUID // assign pointer ke UUID
+		newUser.RoleID = &roleUUID
+	} else {
+		// Auto-assign default role (same as registration flow)
+		defaultRoleName := os.Getenv("REGIST_ROLE_DEFAULT")
+		if defaultRoleName == "" {
+			defaultRoleName = "Customer"
+		}
+		var defaultRole models.Role
+		if err := h.DB.Where("name = ?", defaultRoleName).First(&defaultRole).Error; err == nil {
+			newUser.RoleID = &defaultRole.ID
+			fmt.Printf("✅ Auto-assigned default role '%s' to new user\n", defaultRoleName)
+		}
 	}
 
 	// Upload image jika ada
@@ -237,7 +324,7 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	if err := h.DB.First(&user, "id = ?", id).Error; err != nil {
+	if err := h.DB.Preload("Role").First(&user, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "empty", "User tidak ditemukan", err.Error())
 	}
 
@@ -260,6 +347,45 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 	_, err = checkEmailOrPhoneExist(input.Email, input.Phone)
 	if err != nil {
 		return utils.RespApi(c, "bad", "Validasi gagal! "+err.Error(), err.Error())
+	}
+
+	// --- Role policy validations for Update
+	currentUserRole, _ := h.getCurrentUserRole(c)
+	if currentUserRole == "manager" {
+		// Check existing role of target user
+		if user.RoleID != nil {
+			targetRoleName := strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", ""))
+			if targetRoleName == "manager" {
+				return utils.RespApi(c, "bad", "Manager tidak diperbolehkan mengubah data sesama Manager", nil)
+			}
+		}
+		// Prevent modifying role_id
+		input.RoleID = nil
+	} else if currentUserRole == "owner" {
+		// Check target's current role
+		if user.RoleID == nil {
+			return utils.RespApi(c, "bad", "User tidak memiliki role valid", nil)
+		}
+		targetRoleName := strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", ""))
+		if targetRoleName != "kasir" && targetRoleName != "manager" && targetRoleName != "customer" {
+			return utils.RespApi(c, "bad", "Owner hanya boleh mengubah data user dengan Role Kasir, Manager, atau Customer", nil)
+		}
+
+		// If updating role, check new role
+		if input.RoleID != nil && *input.RoleID != "" {
+			roleUUID, err := uuid.Parse(*input.RoleID)
+			if err != nil {
+				return utils.RespApi(c, "bad", "Role ID tidak valid", err.Error())
+			}
+			var targetRole models.Role
+			if err := h.DB.First(&targetRole, "id = ?", roleUUID).Error; err != nil {
+				return utils.RespApi(c, "bad", "Role tidak ditemukan", err.Error())
+			}
+			newRoleName := strings.ToLower(strings.ReplaceAll(targetRole.Name, " ", ""))
+			if newRoleName != "kasir" && newRoleName != "manager" && newRoleName != "customer" {
+				return utils.RespApi(c, "bad", "Owner hanya boleh menetapkan Role Kasir, Manager, atau Customer", nil)
+			}
+		}
 	}
 
 	updUser := make(map[string]interface{})
@@ -362,8 +488,27 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	if err := h.DB.First(&user, "id = ?", id).Error; err != nil {
+	if err := h.DB.Preload("Role").First(&user, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "ise", "Gagal Mendapatkan user", err.Error())
+	}
+
+	// --- Role policy validations for Delete
+	currentUserRole, _ := h.getCurrentUserRole(c)
+	if currentUserRole == "manager" {
+		if user.RoleID != nil {
+			targetRoleName := strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", ""))
+			if targetRoleName == "manager" {
+				return utils.RespApi(c, "bad", "Manager tidak diperbolehkan menghapus sesama Manager", nil)
+			}
+		}
+	} else if currentUserRole == "owner" {
+		if user.RoleID == nil {
+			return utils.RespApi(c, "bad", "User tidak memiliki role valid untuk dihapus oleh Owner", nil)
+		}
+		targetRoleName := strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", ""))
+		if targetRoleName != "kasir" && targetRoleName != "manager" && targetRoleName != "customer" {
+			return utils.RespApi(c, "bad", "Owner hanya boleh menghapus user dengan Role Kasir, Manager, atau Customer", nil)
+		}
 	}
 
 	if user.Image != nil && *user.Image != "" {

@@ -597,3 +597,131 @@ func (h *OrderHandler) ProcessOrder(c *fiber.Ctx) error {
 
 	return utils.RespApi(c, "ok", "Order processed successfully", nil)
 }
+
+// KasirValidateAndProcess - Direct validation and fast processing for cashier flow
+func (h *OrderHandler) KasirValidateAndProcess(c *fiber.Ctx) error {
+	orderID := c.Params("id")
+	id, err := uuid.Parse(orderID)
+	if err != nil {
+		return utils.RespApi(c, "bad", "Invalid order ID", err.Error())
+	}
+
+	type Request struct {
+		WeightKg *float64 `json:"weight_kg"`
+		TotalPcs *int     `json:"total_pcs"`
+		Notes    *string  `json:"notes"`
+	}
+
+	var req Request
+	if err := c.BodyParser(&req); err != nil {
+		return utils.RespApi(c, "bad", "Invalid request body", err.Error())
+	}
+
+	var order models.Order
+	if err := h.DB.Preload("OrderProducts.Product").First(&order, "id = ?", id).Error; err != nil {
+		return utils.RespApi(c, "nf", "Order not found", err.Error())
+	}
+
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 1. Update fields
+	updates := map[string]interface{}{}
+	if req.WeightKg != nil {
+		updates["weight_kg"] = *req.WeightKg
+	}
+	if req.TotalPcs != nil {
+		updates["total_pcs"] = *req.TotalPcs
+	}
+	if req.Notes != nil {
+		updates["notes"] = *req.Notes
+	}
+
+	// 2. Advance status
+	status := ""
+	if order.Status != nil {
+		status = *order.Status
+	}
+
+	var adminUUID *uuid.UUID
+	if uid := c.Locals("user_id"); uid != nil {
+		if uidParsed, ok := uid.(uuid.UUID); ok {
+			adminUUID = &uidParsed
+		} else if uidStr, ok := uid.(string); ok {
+			if p, err := uuid.Parse(uidStr); err == nil {
+				adminUUID = &p
+			}
+		}
+	}
+
+	// Auto-approve payment if waiting_payment or verification
+	if status == "waiting_payment" || status == "payment_verification" {
+		reason := "Payment approved instantly via Cashier Fast Validation"
+		CreateOrderLog(tx, order.ID, "waiting_process", reason, nil, adminUUID)
+		status = "waiting_process"
+	}
+
+	// Auto-advance from waiting_process to on_progress
+	if status == "waiting_process" {
+		for _, op := range order.OrderProducts {
+			if op.Product == nil {
+				continue
+			}
+			trackingMode := "simple"
+			if op.Product.TrackingMode != nil {
+				trackingMode = *op.Product.TrackingMode
+			}
+
+			if trackingMode == "simple" {
+				res := tx.Model(&models.Product{}).
+					Where("id = ? AND stock >= ?", op.ProductID, *op.Qty).
+					UpdateColumn("stock", gorm.Expr("stock - ?", *op.Qty))
+				if res.Error != nil {
+					tx.Rollback()
+					return utils.RespApi(c, "ise", "Failed to update product stock", res.Error.Error())
+				}
+
+				refType := "order"
+				desc := fmt.Sprintf("Auto-allocated by Fast Process: Order %s", *order.OrderNumber)
+				qtyNeg := -*op.Qty
+				unit := "pcs"
+				mvmt := models.StockMovement{
+					ProductID:     op.ProductID,
+					ReferenceType: &refType,
+					ReferenceID:   &order.ID,
+					Qty:           &qtyNeg,
+					Unit:          &unit,
+					Description:   &desc,
+				}
+				if err := tx.Create(&mvmt).Error; err != nil {
+					tx.Rollback()
+					return utils.RespApi(c, "ise", "Failed to create stock movement", err.Error())
+				}
+			} else {
+				tx.Rollback()
+				return utils.RespApi(c, "bad", "Order contains individual stock tracking. Please use manual process to select serial/remnants.", nil)
+			}
+		}
+
+		updates["status"] = "on_progress"
+		CreateOrderLog(tx, order.ID, "on_progress", "Fast processed to 'On Progress' status", nil, adminUUID)
+	} else {
+		updates["status"] = status
+	}
+
+	if err := tx.Model(&order).Updates(updates).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Failed to update order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Failed to commit transaction", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Order fast-validated and processed successfully!", nil)
+}
+

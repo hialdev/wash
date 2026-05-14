@@ -9,14 +9,16 @@ import (
 
 type OrderService struct {
 	models.BaseModel
-	OrderID      *uuid.UUID `json:"order_id" gorm:"type:uuid;not null"`
-	Order        *Order     `json:"order,omitempty" gorm:"foreignKey:OrderID"`
-	ServiceID    *uuid.UUID `json:"service_id" gorm:"type:uuid;not null"`
-	Service      *Service   `json:"service,omitempty" gorm:"foreignKey:ServiceID"`
-	Qty          *float64   `json:"qty" gorm:"type:decimal(10,2);not null" validate:"required,gt=0"`
-	PriceAtOrder *float64   `json:"price_at_order" gorm:"type:decimal(15,2);not null"`
-	Subtotal     *float64   `json:"subtotal" gorm:"type:decimal(15,2);not null"`
-	Notes        *string    `json:"notes,omitempty" gorm:"type:text"`
+	OrderID          *uuid.UUID `json:"order_id" gorm:"type:uuid;not null"`
+	Order            *Order     `json:"order,omitempty" gorm:"foreignKey:OrderID"`
+	ServiceID        *uuid.UUID `json:"service_id" gorm:"type:uuid;not null"`
+	Service          *Service   `json:"service,omitempty" gorm:"foreignKey:ServiceID"`
+	ServiceVariantID *uuid.UUID `json:"service_variant_id,omitempty" gorm:"type:uuid;index"` // nullable – refers to a Service with ParentID set
+	ServiceVariant   *Service   `json:"service_variant,omitempty" gorm:"foreignKey:ServiceVariantID"`
+	Qty              *float64   `json:"qty" gorm:"type:decimal(10,2);not null" validate:"required,gt=0"`
+	PriceAtOrder     *float64   `json:"price_at_order" gorm:"type:decimal(15,2);not null"`
+	Subtotal         *float64   `json:"subtotal" gorm:"type:decimal(15,2);not null"`
+	Notes            *string    `json:"notes,omitempty" gorm:"type:text"`
 
 	AgentCommissionRate   *float64 `json:"agent_commission_rate,omitempty" gorm:"type:decimal(15,2)"` // Historical rate
 	AgentCommissionAmount *float64 `json:"agent_commission_amount,omitempty" gorm:"type:decimal(15,2)"` // Calculated amount at checkout

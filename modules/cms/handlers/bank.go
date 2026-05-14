@@ -15,12 +15,14 @@ type BankHandler struct {
 }
 
 type BankInput struct {
-	BankName      string  `json:"bank_name" validate:"required"`
-	AccountNumber string  `json:"account_number" validate:"required"`
-	AccountOwner  string  `json:"account_owner" validate:"required"`
+	BankName      string  `json:"bank_name"`
+	AccountNumber string  `json:"account_number"`
+	AccountOwner  string  `json:"account_owner"`
 	Description   *string `json:"description"`
 	Logo          *string `json:"logo"`
 	IsActive      *bool   `json:"is_active"`
+	IsQris        *bool   `json:"is_qris"`
+	QrisImage     *string `json:"qris_image"`
 }
 
 func (h *BankHandler) Create(c *fiber.Ctx) error {
@@ -29,34 +31,44 @@ func (h *BankHandler) Create(c *fiber.Ctx) error {
 	accountOwner := c.FormValue("account_owner")
 	description := c.FormValue("description")
 	isActiveStr := c.FormValue("is_active", "true")
+	isQrisStr := c.FormValue("is_qris", "false")
 
-	input := BankInput{
-		BankName:      bankName,
-		AccountNumber: accountNumber,
-		AccountOwner:  accountOwner,
-	}
-	if description != "" {
-		input.Description = &description
-	}
 	isActive := isActiveStr == "true"
-	input.IsActive = &isActive
+	isQris := isQrisStr == "true"
 
-	if err := utils.Validate.Struct(&input); err != nil {
-		return utils.RespApi(c, "bad", "Validasi gagal", err.Error())
-	}
-
-	uploadPath, err := utils.UploadFile(c, "logo", "banks")
-	if err == nil && uploadPath != "" {
-		input.Logo = &uploadPath
+	// Validate: non-QRIS entries require bank_name and account_number
+	if !isQris && (bankName == "" || accountNumber == "") {
+		return utils.RespApi(c, "bad", "bank_name dan account_number wajib diisi untuk rekening bank biasa", nil)
 	}
 
 	bank := models.Bank{
-		BankName:      &input.BankName,
-		AccountNumber: &input.AccountNumber,
-		AccountOwner:  &input.AccountOwner,
-		Description:   input.Description,
-		Logo:          input.Logo,
-		IsActive:      &isActive,
+		IsActive: &isActive,
+		IsQris:   &isQris,
+	}
+
+	if bankName != "" {
+		bank.BankName = &bankName
+	}
+	if accountNumber != "" {
+		bank.AccountNumber = &accountNumber
+	}
+	if accountOwner != "" {
+		bank.AccountOwner = &accountOwner
+	}
+	if description != "" {
+		bank.Description = &description
+	}
+
+	// Logo upload
+	uploadPath, err := utils.UploadFile(c, "logo", "banks")
+	if err == nil && uploadPath != "" {
+		bank.Logo = &uploadPath
+	}
+
+	// QRIS image upload
+	qrisPath, err := utils.UploadFile(c, "qris_image", "banks/qris")
+	if err == nil && qrisPath != "" {
+		bank.QrisImage = &qrisPath
 	}
 
 	if err := h.DB.Create(&bank).Error; err != nil {
@@ -71,6 +83,7 @@ func (h *BankHandler) GetAll(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	search := c.Query("search", "")
 	isActiveStr := c.Query("is_active", "")
+	isQrisStr := c.Query("is_qris", "")
 
 	offset := (page - 1) * limit
 	var banks []models.Bank
@@ -86,6 +99,11 @@ func (h *BankHandler) GetAll(c *fiber.Ctx) error {
 	if isActiveStr != "" {
 		isActive, _ := strconv.ParseBool(isActiveStr)
 		db = db.Where("is_active = ?", isActive)
+	}
+
+	if isQrisStr != "" {
+		isQris, _ := strconv.ParseBool(isQrisStr)
+		db = db.Where("is_qris = ?", isQris)
 	}
 
 	var total int64
@@ -130,43 +148,39 @@ func (h *BankHandler) Update(c *fiber.Ctx) error {
 	accountOwner := c.FormValue("account_owner")
 	description := c.FormValue("description")
 	isActiveStr := c.FormValue("is_active", "")
+	isQrisStr := c.FormValue("is_qris", "")
 
-	input := BankInput{
-		BankName:      bankName,
-		AccountNumber: accountNumber,
-		AccountOwner:  accountOwner,
+	if bankName != "" {
+		bank.BankName = &bankName
+	}
+	if accountNumber != "" {
+		bank.AccountNumber = &accountNumber
+	}
+	if accountOwner != "" {
+		bank.AccountOwner = &accountOwner
 	}
 	if description != "" {
-		input.Description = &description
+		bank.Description = &description
 	}
 	if isActiveStr != "" {
 		isActive := isActiveStr == "true"
-		input.IsActive = &isActive
+		bank.IsActive = &isActive
+	}
+	if isQrisStr != "" {
+		isQris := isQrisStr == "true"
+		bank.IsQris = &isQris
 	}
 
-	if err := utils.Validate.Struct(&input); err != nil {
-		return utils.RespApi(c, "bad", "Validasi gagal", err.Error())
-	}
-
+	// Logo upload (optional, keep existing if not provided)
 	uploadPath, err := utils.UploadFile(c, "logo", "banks")
 	if err == nil && uploadPath != "" {
 		bank.Logo = &uploadPath
 	}
 
-	if input.BankName != "" {
-		bank.BankName = &input.BankName
-	}
-	if input.AccountNumber != "" {
-		bank.AccountNumber = &input.AccountNumber
-	}
-	if input.AccountOwner != "" {
-		bank.AccountOwner = &input.AccountOwner
-	}
-	if input.Description != nil {
-		bank.Description = input.Description
-	}
-	if input.IsActive != nil {
-		bank.IsActive = input.IsActive
+	// QRIS image upload (optional, keep existing if not provided)
+	qrisPath, err := utils.UploadFile(c, "qris_image", "banks/qris")
+	if err == nil && qrisPath != "" {
+		bank.QrisImage = &qrisPath
 	}
 
 	if err := h.DB.Save(&bank).Error; err != nil {

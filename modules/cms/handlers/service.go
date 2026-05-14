@@ -27,27 +27,43 @@ func (h *ServiceHandler) GetAllServices(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	search := strings.ToLower(c.Query("search", ""))
 	categoryID := c.Query("category_id", "")
-	status := c.Query("status", "") // active, inactive
+	status := c.Query("status", "")   // active, inactive
+	parentID := c.Query("parent_id", "") // specific parent = get variants; "none" = top-level only
+	withVariants := c.Query("with_variants", "false") == "true"
 
 	offset := (page - 1) * limit
 
 	db := h.DB.Preload("ServiceCategory")
+	if withVariants {
+		db = db.Preload("Variants")
+	}
+
+	// Parent-ID filter logic
+	if parentID == "none" {
+		// Only top-level (parent) services
+		db = db.Where("parent_id IS NULL")
+	} else if parentID != "" {
+		// Only variants of this parent
+		db = db.Where("parent_id = ?", parentID)
+	}
 
 	if search != "" {
 		db = db.Where("LOWER(name) LIKE ?", "%"+search+"%")
 	}
-
 	if categoryID != "" {
 		db = db.Where("service_category_id = ?", categoryID)
 	}
-
 	if status != "" {
 		isActive := status == "active"
 		db = db.Where("is_active = ?", isActive)
 	}
 
-	var total int64
 	countQuery := h.DB.Model(&models.Service{})
+	if parentID == "none" {
+		countQuery = countQuery.Where("parent_id IS NULL")
+	} else if parentID != "" {
+		countQuery = countQuery.Where("parent_id = ?", parentID)
+	}
 	if search != "" {
 		countQuery = countQuery.Where("LOWER(name) LIKE ?", "%"+search+"%")
 	}
@@ -58,6 +74,8 @@ func (h *ServiceHandler) GetAllServices(c *fiber.Ctx) error {
 		isActive := status == "active"
 		countQuery = countQuery.Where("is_active = ?", isActive)
 	}
+
+	var total int64
 	if err := countQuery.Count(&total).Error; err != nil {
 		return utils.RespApi(c, "ise", "Gagal hitung total", err.Error())
 	}
@@ -90,7 +108,11 @@ func (h *ServiceHandler) GetService(c *fiber.Ctx) error {
 	}
 
 	var service models.Service
-	if err := h.DB.Preload("ServiceCategory").First(&service, "id = ?", id).Error; err != nil {
+	if err := h.DB.
+		Preload("ServiceCategory").
+		Preload("Variants").
+		Preload("ServiceCogs.RawMaterial").
+		First(&service, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "empty", "Service tidak ditemukan", err.Error())
 	}
 
@@ -98,43 +120,89 @@ func (h *ServiceHandler) GetService(c *fiber.Ctx) error {
 }
 
 func (h *ServiceHandler) AddService(c *fiber.Ctx) error {
-	// Parse fields
-	name := c.FormValue("name")
-	description := c.FormValue("description")
-	priceStr := c.FormValue("price")
-	unit := c.FormValue("unit")
-	estimatedDurationStr := c.FormValue("estimated_duration")
-	isActiveStr := c.FormValue("is_active")
-	categoryIDStr := c.FormValue("service_category_id")
+	var service models.Service
 
-	// Convert types
-	price, _ := strconv.ParseFloat(priceStr, 64)
-	estimatedDuration, _ := strconv.Atoi(estimatedDurationStr)
-	isActive := true
-	if isActiveStr != "" {
-		isActive, _ = strconv.ParseBool(isActiveStr)
-	}
+	// 1. Support monolithic payloads containing full hierarchies (Parent + Variants + COGS)
+	payload := c.FormValue("payload")
+	if payload != "" {
+		if err := json.Unmarshal([]byte(payload), &service); err != nil {
+			return utils.RespApi(c, "bad", "Gagal memproses payload data JSON", err.Error())
+		}
+	} else {
+		// Fallback: Legacy parsing from flat form fields
+		name := c.FormValue("name")
+		description := c.FormValue("description")
+		priceStr := c.FormValue("price")
+		unit := c.FormValue("unit")
+		estimatedDurationStr := c.FormValue("estimated_duration")
+		isActiveStr := c.FormValue("is_active")
+		isParentStr := c.FormValue("is_parent")
+		categoryIDStr := c.FormValue("service_category_id")
+		parentIDStr := c.FormValue("parent_id")
 
-	var categoryID *uuid.UUID
-	if categoryIDStr != "" {
-		id, err := uuid.Parse(categoryIDStr)
-		if err == nil {
-			categoryID = &id
+		price, _ := strconv.ParseFloat(priceStr, 64)
+		estimatedDuration, _ := strconv.Atoi(estimatedDurationStr)
+		
+		isActive := true
+		if isActiveStr != "" {
+			isActive, _ = strconv.ParseBool(isActiveStr)
+		}
+		
+		isParent := false
+		if isParentStr != "" {
+			isParent, _ = strconv.ParseBool(isParentStr)
+		}
+
+		var categoryID *uuid.UUID
+		if categoryIDStr != "" {
+			id, err := uuid.Parse(categoryIDStr)
+			if err == nil {
+				categoryID = &id
+			}
+		}
+
+		var parentID *uuid.UUID
+		if parentIDStr != "" {
+			pid, err := uuid.Parse(parentIDStr)
+			if err == nil {
+				parentID = &pid
+			}
+		}
+
+		service = models.Service{
+			Name:              &name,
+			Description:       &description,
+			Price:             &price,
+			Unit:              &unit,
+			EstimatedDuration: &estimatedDuration,
+			IsActive:          &isActive,
+			IsParent:          &isParent,
+			ServiceCategoryID: categoryID,
+			ParentID:          parentID,
 		}
 	}
 
-	// Create service struct
-	service := models.Service{
-		Name:              &name,
-		Description:       &description,
-		Price:             &price,
-		Unit:              &unit,
-		EstimatedDuration: &estimatedDuration,
-		IsActive:          &isActive,
-		ServiceCategoryID: categoryID,
+	// 2. Business Constraint: An active group parent CANNOT hold a localized BOM directly
+	if service.IsParent != nil && *service.IsParent {
+		service.ServiceCogs = nil
 	}
 
-	// Validate
+	// 2.5 Business Constraint: Ensure appropriate pricing context
+	if service.IsParent == nil || !*service.IsParent {
+		// If standalone, price must be > 0
+		if service.Price == nil || *service.Price <= 0 {
+			return utils.RespApi(c, "bad", "Validasi gagal", map[string]string{"Service.Price": "Harga layanan standalone harus lebih besar dari 0"})
+		}
+	} else {
+		// If parent, enforce that each registered variant has a price > 0
+		for i, v := range service.Variants {
+			if v.Price == nil || *v.Price <= 0 {
+				return utils.RespApi(c, "bad", "Validasi gagal", map[string]string{fmt.Sprintf("Service.Variants[%d].Price", i): "Harga untuk varian ini harus lebih besar dari 0"})
+			}
+		}
+	}
+
+	// 3. Validate structural compliance
 	if err := utils.Validate.Struct(service); err != nil {
 		if verrs, ok := err.(validator.ValidationErrors); ok {
 			return utils.RespApi(c, "bad", "Validasi gagal", verrs.Translate(utils.Translator))
@@ -142,15 +210,14 @@ func (h *ServiceHandler) AddService(c *fiber.Ctx) error {
 		return utils.RespApi(c, "bad", "Validasi gagal", err.Error())
 	}
 
-	// Handle Images
+	// 4. Process and map Parent Service media uploads
 	form, err := c.MultipartForm()
 	if err == nil && form != nil {
 		files := form.File["images"]
 		var uploadedPaths []string
 
 		for _, file := range files {
-			// Save file
-			savedFile, err := utils.SaveFile(file, "services") // Upload to 'services' folder
+			savedFile, err := utils.SaveFile(file, "services")
 			if err != nil {
 				fmt.Printf("Failed to save image: %v\n", err)
 				continue
@@ -162,14 +229,12 @@ func (h *ServiceHandler) AddService(c *fiber.Ctx) error {
 			imagesJSON, _ := json.Marshal(uploadedPaths)
 			imagesStr := string(imagesJSON)
 			service.Images = &imagesStr
-		} else {
-			// If no files uploaded, check if "existing_images" are provided (for edit mostly, but maybe relevant)
-			// For AddService, we usually just take new files
 		}
 	}
 
+	// 5. Atomically commit complete Parent -> Variant -> ServiceCog relation tree
 	if err := h.DB.Create(&service).Error; err != nil {
-		return utils.RespApi(c, "ise", "Gagal membuat Service", err.Error())
+		return utils.RespApi(c, "ise", "Gagal membuat Service beserta komponen hirarkinya", err.Error())
 	}
 
 	return utils.RespApi(c, "ok", "Berhasil membuat Service", service)
@@ -194,7 +259,9 @@ func (h *ServiceHandler) UpdateService(c *fiber.Ctx) error {
 	unit := c.FormValue("unit")
 	estimatedDurationStr := c.FormValue("estimated_duration")
 	isActiveStr := c.FormValue("is_active")
+	isParentStr := c.FormValue("is_parent")
 	categoryIDStr := c.FormValue("service_category_id")
+	parentIDStr := c.FormValue("parent_id")
 
 	// Update fields
 	if name != "" {
@@ -222,6 +289,24 @@ func (h *ServiceHandler) UpdateService(c *fiber.Ctx) error {
 		catID, err := uuid.Parse(categoryIDStr)
 		if err == nil {
 			service.ServiceCategoryID = &catID
+		}
+	}
+	if parentIDStr == "null" || parentIDStr == "remove" {
+		// Explicit unset: promote variant to top-level service
+		service.ParentID = nil
+	} else if parentIDStr != "" {
+		pid, err := uuid.Parse(parentIDStr)
+		if err == nil {
+			service.ParentID = &pid
+		}
+	}
+
+	if isParentStr != "" {
+		isParent, _ := strconv.ParseBool(isParentStr)
+		service.IsParent = &isParent
+		// If promoting to parent, purge any accidental existing localized BOM ties
+		if isParent {
+			h.DB.Where("service_id = ?", service.ID).Delete(&models.ServiceCog{})
 		}
 	}
 

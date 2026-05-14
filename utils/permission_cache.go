@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,22 +50,39 @@ func GetUserPermissions(userID string) ([]string, error) {
 	if err := connection.DB.
 		Preload("Role.Permissions").
 		First(&user, "id = ?", userUUID).Error; err != nil {
-		return nil, fmt.Errorf("failed to fetch user: %w", err)
+		fmt.Printf("❌ [DB ERROR] Failed to fetch user %s: %v\n", userID, err)
+		return []string{}, fmt.Errorf("failed to fetch user: %w", err)
 	}
 
 	// Extract permission names
-	var permissions []string
-	if user.RoleID != nil {
+	permissions := []string{}
+	roleName := strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", ""))
+	fmt.Printf("🔍 [DEBUG] User %s has Role: %s (Normalized: %s, RoleID: %v)\n", userID, user.Role.Name, roleName, user.RoleID)
+
+	// Special Case: Superadmin always gets all permissions
+	if roleName == "superadmin" {
+		fmt.Printf("👑 [SUPERADMIN] Bypassing permission list, fetching all from DB for user %s\n", userID)
+		var allPerms []models.Permission
+		connection.DB.Find(&allPerms)
+		for _, p := range allPerms {
+			permissions = append(permissions, p.Name)
+		}
+	} else if user.RoleID != nil {
+		fmt.Printf("🔍 [DEBUG] Role %s has %d permissions\n", user.Role.Name, len(user.Role.Permissions))
 		for _, perm := range user.Role.Permissions {
-			permissions = append(permissions, perm.Name)
+			if perm.Name != "" {
+				permissions = append(permissions, perm.Name)
+			}
 		}
 	}
 
 	// Store in Redis cache
-	permJSON, err := json.Marshal(permissions)
-	if err == nil {
-		connection.Redis.Set(ctx, cacheKey, permJSON, PermissionCacheTTL)
-		fmt.Printf("💾 [CACHED] Permissions for user %s stored in Redis (TTL: %v)\n", userID, PermissionCacheTTL)
+	if len(permissions) > 0 {
+		permJSON, err := json.Marshal(permissions)
+		if err == nil {
+			connection.Redis.Set(ctx, cacheKey, permJSON, PermissionCacheTTL)
+			fmt.Printf("💾 [CACHED] Permissions for user %s stored in Redis (TTL: %v)\n", userID, PermissionCacheTTL)
+		}
 	}
 
 	return permissions, nil

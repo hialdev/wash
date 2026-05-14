@@ -59,8 +59,22 @@ func (h *ManualPaymentHandler) UploadPaymentProof(c *fiber.Ctx) error {
 		return utils.RespApi(c, "bad", "Invalid user ID type", nil)
 	}
 
-	// Verify order belongs to user
-	if order.UserID == nil || *order.UserID != userID {
+	// Check user permissions to allow staff to upload on behalf of customers
+	isStaff := false
+	permsRaw := c.Locals("permissions")
+	if permsRaw != nil {
+		if perms, ok := permsRaw.([]interface{}); ok {
+			for _, p := range perms {
+				if ps, ok := p.(string); ok && (ps == "Update Order" || ps == "Add Order") {
+					isStaff = true
+					break
+				}
+			}
+		}
+	}
+
+	// Verify order belongs to user, skip if user is staff
+	if !isStaff && (order.UserID == nil || *order.UserID != userID) {
 		return utils.RespApi(c, "forbidden", "You don't have permission to access this order", nil)
 	}
 
@@ -111,8 +125,9 @@ func (h *ManualPaymentHandler) VerifyPayment(c *fiber.Ctx) error {
 
 	// Get action from body
 	type VerifyInput struct {
-		Action string  `json:"action"` // approve, reject
-		Reason *string `json:"reason,omitempty"`
+		Action        string  `json:"action"` // approve, reject
+		Reason        *string `json:"reason,omitempty"`
+		PaymentMethod *string `json:"payment_method,omitempty"`
 	}
 
 	var input VerifyInput
@@ -130,9 +145,9 @@ func (h *ManualPaymentHandler) VerifyPayment(c *fiber.Ctx) error {
 		return utils.RespApi(c, "nf", "Order not found", err.Error())
 	}
 
-	// Check if order is in payment_verification status
-	if order.Status == nil || *order.Status != "payment_verification" {
-		return utils.RespApi(c, "bad", "Order is not in payment_verification status", nil)
+	// Check if order is in payment_verification or waiting_payment status
+	if order.Status == nil || (*order.Status != "payment_verification" && *order.Status != "waiting_payment") {
+		return utils.RespApi(c, "bad", "Order is not in valid status for verification", nil)
 	}
 
 	// Get admin user ID from context
@@ -241,7 +256,14 @@ func (h *ManualPaymentHandler) VerifyPayment(c *fiber.Ctx) error {
 
 		// Update order status to waiting_process
 		newStatus := "waiting_process"
-		if err := tx.Model(&models.Order{}).Where("id = ?", order.ID).Update("status", newStatus).Error; err != nil {
+		updates := map[string]interface{}{
+			"status": newStatus,
+		}
+		if input.PaymentMethod != nil && *input.PaymentMethod != "" {
+			updates["payment_method"] = *input.PaymentMethod
+		}
+
+		if err := tx.Model(&models.Order{}).Where("id = ?", order.ID).Updates(updates).Error; err != nil {
 			tx.Rollback()
 			fmt.Printf("❌ Failed to update order status: %v\n", err)
 			return utils.RespApi(c, "ise", "Failed to update order status", err.Error())

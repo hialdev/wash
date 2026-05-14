@@ -79,7 +79,6 @@ func main() {
 		&CMSModels.Adjustment{},
 		&CMSModels.StockMovement{},
 		&CMSModels.InventoryItem{},
-		&CMSModels.InventoryItem{},
 		&CMSModels.InventoryAllocation{},
 
 		// Services
@@ -89,6 +88,7 @@ func main() {
 		&CMSModels.OrderService{},
 		&CMSModels.OrderServiceProcess{},
 		&CMSModels.OrderServiceDetail{},
+		&CMSModels.OrderProcessLog{}, // order-level process tracking (kasir)
 
 		// Raw Materials (COGS)
 		&CMSModels.RawMaterial{},

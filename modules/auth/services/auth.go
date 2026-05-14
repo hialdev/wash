@@ -54,15 +54,26 @@ func generateToken(userID string, typeToken string, expiry time.Duration) (strin
 // ambil permission user
 func (s *AuthService) GetUserPermissions(userID string) ([]string, error) {
 	var user models.User
-	var permissions []string
+	permissions := []string{}
 
 	err := s.DB.Preload("Role.Permissions").Find(&user, "id = ?", userID).Error
 	if err != nil {
-		return nil, err
+		return permissions, err
 	}
 
 	if user.RoleID == nil {
-		return []string{}, nil
+		return permissions, nil
+	}
+
+	// Special Case: Superadmin gets all permissions
+	roleName := strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", ""))
+	if roleName == "superadmin" {
+		var allPerms []models.Permission
+		s.DB.Find(&allPerms)
+		for _, p := range allPerms {
+			permissions = append(permissions, p.Name)
+		}
+		return permissions, nil
 	}
 
 	for _, p := range user.Role.Permissions {

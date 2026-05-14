@@ -30,9 +30,10 @@ type OrderProductInput struct {
 }
 
 type OrderServiceInput struct {
-	ServiceID *uuid.UUID `json:"service_id" validate:"required"`
-	Qty       *float64   `json:"qty" validate:"required,gt=0"`
-	Notes     *string    `json:"notes,omitempty"`
+	ServiceID        *uuid.UUID `json:"service_id" validate:"required"`
+	ServiceVariantID *uuid.UUID `json:"service_variant_id,omitempty"`
+	Qty              *float64   `json:"qty" validate:"required,gt=0"`
+	Notes             *string    `json:"notes,omitempty"`
 }
 
 type OrderInput struct {
@@ -43,6 +44,9 @@ type OrderInput struct {
 	VoucherCode     *string             `json:"voucher_code,omitempty"`
 	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
 	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
+	// Kasir order boarding fields
+	WeightKg *float64 `json:"weight_kg,omitempty"`
+	TotalPcs *int     `json:"total_pcs,omitempty"`
 }
 
 type CustomerOrderInput struct {
@@ -286,17 +290,24 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 
 	// Prepare Service Items
 	var orderServiceItems []struct {
-		ServiceID    *uuid.UUID
-		Qty          *float64
-		PriceAtOrder *float64
-		Subtotal     *float64
-		Notes        *string
-		Service      models.Service
+		ServiceID        *uuid.UUID
+		ServiceVariantID *uuid.UUID
+		Qty              *float64
+		PriceAtOrder     *float64
+		Subtotal         *float64
+		Notes            *string
+		Service          models.Service
 	}
 
 	for _, serviceInput := range input.Services {
 		var service models.Service
-		if err := h.DB.First(&service, "id = ?", serviceInput.ServiceID).Error; err != nil {
+		// Fetch actual service to get price (could be parent or variant)
+		fetchID := serviceInput.ServiceID
+		if serviceInput.ServiceVariantID != nil {
+			fetchID = serviceInput.ServiceVariantID
+		}
+
+		if err := h.DB.First(&service, "id = ?", fetchID).Error; err != nil {
 			return utils.RespApi(c, "bad", "Service tidak ditemukan", err.Error())
 		}
 
@@ -309,19 +320,21 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		totalBill += subtotal
 
 		orderServiceItems = append(orderServiceItems, struct {
-			ServiceID    *uuid.UUID
-			Qty          *float64
-			PriceAtOrder *float64
-			Subtotal     *float64
-			Notes        *string
-			Service      models.Service
+			ServiceID        *uuid.UUID
+			ServiceVariantID *uuid.UUID
+			Qty              *float64
+			PriceAtOrder     *float64
+			Subtotal         *float64
+			Notes            *string
+			Service          models.Service
 		}{
-			ServiceID:    serviceInput.ServiceID,
-			Qty:          serviceInput.Qty,
-			PriceAtOrder: &priceAtOrder,
-			Subtotal:     &subtotal,
-			Notes:        serviceInput.Notes,
-			Service:      service,
+			ServiceID:        serviceInput.ServiceID,
+			ServiceVariantID: serviceInput.ServiceVariantID,
+			Qty:              serviceInput.Qty,
+			PriceAtOrder:     &priceAtOrder,
+			Subtotal:         &subtotal,
+			Notes:            serviceInput.Notes,
+			Service:          service,
 		})
 	}
 
@@ -413,6 +426,8 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		TotalBill:       &totalBill,
 		VoucherID:       voucherID,
 		DiscountAmount:  &discountAmount,
+		WeightKg:        input.WeightKg,
+		TotalPcs:        input.TotalPcs,
 	}
 
 	if err := tx.Create(&order).Error; err != nil {
@@ -440,12 +455,13 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 	// Create order services
 	for _, item := range orderServiceItems {
 		orderService := models.OrderService{
-			OrderID:      &order.ID,
-			ServiceID:    item.ServiceID,
-			Qty:          item.Qty,
-			PriceAtOrder: item.PriceAtOrder,
-			Subtotal:     item.Subtotal,
-			Notes:        item.Notes,
+			OrderID:          &order.ID,
+			ServiceID:        item.ServiceID,
+			ServiceVariantID: item.ServiceVariantID,
+			Qty:              item.Qty,
+			PriceAtOrder:     item.PriceAtOrder,
+			Subtotal:         item.Subtotal,
+			Notes:            item.Notes,
 		}
 
 		if err := tx.Create(&orderService).Error; err != nil {
@@ -498,12 +514,13 @@ func (h *OrderHandler) createXenditInvoice(order models.Order, orderItems []stru
 	Subtotal        *float64
 	Product         models.Product
 }, orderServiceItems []struct {
-	ServiceID    *uuid.UUID
-	Qty          *float64
-	PriceAtOrder *float64
-	Subtotal     *float64
-	Notes        *string
-	Service      models.Service
+	ServiceID        *uuid.UUID
+	ServiceVariantID *uuid.UUID
+	Qty              *float64
+	PriceAtOrder     *float64
+	Subtotal         *float64
+	Notes            *string
+	Service          models.Service
 }) (string, string, error) {
 	// Prepare invoice items
 	var items []map[string]interface{}

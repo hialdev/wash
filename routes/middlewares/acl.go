@@ -5,6 +5,7 @@ import (
 	"aldev/modules/auth/models"
 	"aldev/utils"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -40,6 +41,12 @@ func DoACL(requiredPerms ...string) fiber.Handler {
 		// === 3. Pastikan user memiliki role ===
 		if user.RoleID == nil || user.RoleID.String() == "" {
 			return utils.RespApi(c, "fbd", "Tidak memiliki role yang sah", nil)
+		}
+
+		// ✨ SUPERADMIN BYPASS: Jika role adalah Superadmin, izinkan semua akses
+		roleName := strings.ToLower(strings.ReplaceAll(user.Role.Name, " ", ""))
+		if roleName == "superadmin" {
+			return c.Next()
 		}
 
 		// === 4. Ekstrak nama permission dari relasi ===

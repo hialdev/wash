@@ -292,17 +292,24 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 
 	// Prepare Service Items
 	var orderServiceItems []struct {
-		ServiceID    *uuid.UUID
-		Qty          *float64
-		PriceAtOrder *float64
-		Subtotal     *float64
-		Notes        *string
-		Service      models.Service
+		ServiceID        *uuid.UUID
+		ServiceVariantID *uuid.UUID
+		Qty              *float64
+		PriceAtOrder     *float64
+		Subtotal         *float64
+		Notes            *string
+		Service          models.Service
 	}
 
 	for _, serviceInput := range input.Services {
 		var service models.Service
-		if err := h.DB.First(&service, "id = ?", serviceInput.ServiceID).Error; err != nil {
+		// Fetch actual service to get price (could be parent or variant)
+		fetchID := serviceInput.ServiceID
+		if serviceInput.ServiceVariantID != nil {
+			fetchID = serviceInput.ServiceVariantID
+		}
+
+		if err := h.DB.First(&service, "id = ?", fetchID).Error; err != nil {
 			return utils.RespApi(c, "bad", "Service tidak ditemukan", err.Error())
 		}
 
@@ -315,19 +322,21 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 		totalBill += subtotal
 
 		orderServiceItems = append(orderServiceItems, struct {
-			ServiceID    *uuid.UUID
-			Qty          *float64
-			PriceAtOrder *float64
-			Subtotal     *float64
-			Notes        *string
-			Service      models.Service
+			ServiceID        *uuid.UUID
+			ServiceVariantID *uuid.UUID
+			Qty              *float64
+			PriceAtOrder     *float64
+			Subtotal         *float64
+			Notes            *string
+			Service          models.Service
 		}{
-			ServiceID:    serviceInput.ServiceID,
-			Qty:          serviceInput.Qty,
-			PriceAtOrder: &priceAtOrder,
-			Subtotal:     &subtotal,
-			Notes:        serviceInput.Notes,
-			Service:      service,
+			ServiceID:        serviceInput.ServiceID,
+			ServiceVariantID: serviceInput.ServiceVariantID,
+			Qty:              serviceInput.Qty,
+			PriceAtOrder:     &priceAtOrder,
+			Subtotal:         &subtotal,
+			Notes:            serviceInput.Notes,
+			Service:          service,
 		})
 	}
 
@@ -443,12 +452,13 @@ func (h *MyOrderHandler) CreateMyOrder(c *fiber.Ctx) error {
 	// Create order services
 	for _, item := range orderServiceItems {
 		orderService := models.OrderService{
-			OrderID:      &order.ID,
-			ServiceID:    item.ServiceID,
-			Qty:          item.Qty,
-			PriceAtOrder: item.PriceAtOrder,
-			Subtotal:     item.Subtotal,
-			Notes:        item.Notes,
+			OrderID:          &order.ID,
+			ServiceID:        item.ServiceID,
+			ServiceVariantID: item.ServiceVariantID,
+			Qty:              item.Qty,
+			PriceAtOrder:     item.PriceAtOrder,
+			Subtotal:         item.Subtotal,
+			Notes:            item.Notes,
 		}
 
 		if err := tx.Create(&orderService).Error; err != nil {
@@ -535,12 +545,13 @@ func createXenditInvoiceLocal(order models.Order, orderItems []struct {
 	Subtotal        *float64
 	Product         models.Product
 }, orderServiceItems []struct {
-	ServiceID    *uuid.UUID
-	Qty          *float64
-	PriceAtOrder *float64
-	Subtotal     *float64
-	Notes        *string
-	Service      models.Service
+	ServiceID        *uuid.UUID
+	ServiceVariantID *uuid.UUID
+	Qty              *float64
+	PriceAtOrder     *float64
+	Subtotal         *float64
+	Notes            *string
+	Service          models.Service
 }) (string, string, error) {
 	// Prepare invoice items
 	var items []map[string]interface{}
@@ -628,4 +639,86 @@ func createXenditInvoiceLocal(order models.Order, orderItems []struct {
 	invoiceURL := result["invoice_url"].(string)
 
 	return invoiceID, invoiceURL, nil
+}
+
+func (h *MyOrderHandler) RateOrder(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "ID tidak valid", nil)
+	}
+
+	var input struct {
+		Rating int    `json:"rating" validate:"required,min=1,max=5"`
+		Review string `json:"review"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return utils.RespApi(c, "bad", "Input tidak valid", err.Error())
+	}
+
+	if err := utils.Validate.Struct(input); err != nil {
+		return utils.RespApi(c, "bad", "Validasi gagal", err.Error())
+	}
+
+	var order models.Order
+	userID := c.Locals("userId").(uuid.UUID)
+
+	if err := h.DB.Where("id = ? AND user_id = ?", id, userID).First(&order).Error; err != nil {
+		return utils.RespApi(c, "empty", "Pesanan tidak ditemukan", err.Error())
+	}
+
+	if order.Status == nil || *order.Status != "finish" {
+		return utils.RespApi(c, "bad", "Hanya pesanan yang sudah selesai yang dapat diberi rating", nil)
+	}
+
+	if err := h.DB.Model(&order).Updates(map[string]interface{}{
+		"rating": input.Rating,
+		"review": input.Review,
+	}).Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal menyimpan rating", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Berhasil memberi rating", nil)
+}
+
+func (h *MyOrderHandler) GetMyOrderProcessLogs(c *fiber.Ctx) error {
+	// Get user ID from JWT middleware context
+	userID, err := h.GetUserIDFromToken(c)
+	if err != nil {
+		return utils.RespApi(c, "unauth", "User ID not found in token", nil)
+	}
+
+	orderID := c.Params("id")
+
+	// Find agent if exists to include orders they placed for others
+	var agent models.Agent
+	h.DB.Where("user_id = ?", userID).First(&agent)
+
+	var order models.Order
+	query := h.DB
+	if agent.ID != uuid.Nil {
+		query = query.Where("id = ? AND (user_id = ? OR agent_id = ?)", orderID, userID, agent.ID)
+	} else {
+		query = query.Where("id = ? AND user_id = ?", orderID, userID)
+	}
+
+	if err := query.First(&order).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return utils.RespApi(c, "nf", "Pesanan tidak ditemukan", nil)
+		}
+		return utils.RespApi(c, "ise", "Gagal mengambil data pesanan", err.Error())
+	}
+
+	// Fetch process logs for this order
+	var logs []models.OrderProcessLog
+	if err := h.DB.
+		Preload("CreatedBy").
+		Where("order_id = ?", order.ID).
+		Order("created_at ASC").
+		Find(&logs).Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal mengambil log proses", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Log proses berhasil diambil", logs)
 }

@@ -30,9 +30,17 @@ type Order struct {
 	AgentID      *uuid.UUID `json:"agent_id,omitempty" gorm:"type:uuid"`
 	Agent        *Agent     `json:"agent,omitempty" gorm:"foreignKey:AgentID"`
 
-	OrderProducts []OrderProduct   `json:"order_products,omitempty" gorm:"foreignKey:OrderID"`
-	OrderServices []OrderService   `json:"order_services,omitempty" gorm:"foreignKey:OrderID"`
-	OrderLogs     []OrderLogStatus `json:"order_logs,omitempty" gorm:"foreignKey:OrderID"`
+	OrderProducts    []OrderProduct    `json:"order_products,omitempty" gorm:"foreignKey:OrderID"`
+	OrderServices    []OrderService    `json:"order_services,omitempty" gorm:"foreignKey:OrderID"`
+	OrderLogs        []OrderLogStatus  `json:"order_logs,omitempty" gorm:"foreignKey:OrderID"`
+	OrderProcessLogs []OrderProcessLog `json:"order_process_logs,omitempty" gorm:"foreignKey:OrderID"`
+
+	Rating *int    `json:"rating,omitempty" gorm:"type:int"`
+	Review *string `json:"review,omitempty" gorm:"type:text"`
+
+	// Kasir order boarding fields
+	WeightKg *float64 `json:"weight_kg,omitempty" gorm:"type:decimal(10,3)"`
+	TotalPcs *int     `json:"total_pcs,omitempty" gorm:"type:int"`
 }
 
 type OrderProduct struct {

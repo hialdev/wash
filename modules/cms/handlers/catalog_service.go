@@ -23,11 +23,15 @@ func (h *CatalogServiceHandler) GetCatalogServices(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "12"))
 	search := strings.ToLower(c.Query("search", ""))
 	categoryID := c.Query("category_id", "")
+	parentID := c.Query("parent_id", "")
 
 	offset := (page - 1) * limit
 
 	// Active services only
-	db := h.DB.Model(&models.Service{}).Where("is_active = ?", true).Preload("ServiceCategory")
+	db := h.DB.Model(&models.Service{}).
+		Where("is_active = ?", true).
+		Preload("ServiceCategory").
+		Preload("Variants", "is_active = ?", true)
 
 	if search != "" {
 		db = db.Where("LOWER(name) LIKE ?", "%"+search+"%")
@@ -37,6 +41,15 @@ func (h *CatalogServiceHandler) GetCatalogServices(c *fiber.Ctx) error {
 		db = db.Where("service_category_id = ?", categoryID)
 	}
 
+	if parentID == "none" {
+		db = db.Where("parent_id IS NULL")
+	} else if parentID != "" {
+		db = db.Where("parent_id = ?", parentID)
+	} else if search == "" {
+		// By default only show parent services if not searching
+		db = db.Where("parent_id IS NULL")
+	}
+
 	var total int64
 	countQuery := h.DB.Model(&models.Service{}).Where("is_active = ?", true)
 	if search != "" {
@@ -44,6 +57,13 @@ func (h *CatalogServiceHandler) GetCatalogServices(c *fiber.Ctx) error {
 	}
 	if categoryID != "" {
 		countQuery = countQuery.Where("service_category_id = ?", categoryID)
+	}
+	if parentID == "none" {
+		countQuery = countQuery.Where("parent_id IS NULL")
+	} else if parentID != "" {
+		countQuery = countQuery.Where("parent_id = ?", parentID)
+	} else if search == "" {
+		countQuery = countQuery.Where("parent_id IS NULL")
 	}
 	countQuery.Count(&total)
 

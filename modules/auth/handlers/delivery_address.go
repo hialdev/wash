@@ -232,3 +232,51 @@ func (h *DeliveryAddressHandler) SetPrimary(c *fiber.Ctx) error {
 	tx.Commit()
 	return utils.RespApi(c, "ok", "Alamat utama berhasil diatur", nil)
 }
+
+// CreateForUser — create delivery address for a specific user (used by Kasir)
+func (h *DeliveryAddressHandler) CreateForUser(c *fiber.Ctx) error {
+	userIDStr := c.Params("id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "User ID yang diberikan tidak valid", nil)
+	}
+
+	var input DeliveryAddressInput
+	if err := c.BodyParser(&input); err != nil {
+		return utils.RespApi(c, "bad", "Data input salah", err.Error())
+	}
+
+	if err := utils.Validate.Struct(input); err != nil {
+		return utils.RespApi(c, "bad", "Validasi gagal", err.Error())
+	}
+
+	tx := h.DB.Begin()
+
+	// If marked as primary, reset others first
+	if input.IsPrimary {
+		tx.Model(&models.DeliveryAddress{}).Where("user_id = ?", userID).Update("is_primary", false)
+	}
+
+	// Auto-primary if first address
+	var addressCount int64
+	tx.Model(&models.DeliveryAddress{}).Where("user_id = ?", userID).Count(&addressCount)
+	if addressCount == 0 {
+		input.IsPrimary = true
+	}
+
+	address := models.DeliveryAddress{
+		UserID:      &userID,
+		Address:     &input.Address,
+		PhoneNumber: &input.PhoneNumber,
+		Notes:       &input.Notes,
+		IsPrimary:   &input.IsPrimary,
+	}
+
+	if err := tx.Create(&address).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal menyimpan alamat", err.Error())
+	}
+
+	tx.Commit()
+	return utils.RespApi(c, "created", "Alamat berhasil ditambahkan", address)
+}

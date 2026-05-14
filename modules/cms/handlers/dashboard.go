@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	authModels "aldev/modules/auth/models"
 	"aldev/modules/cms/models"
 	"aldev/utils"
 
@@ -149,4 +150,40 @@ func (h *DashboardHandler) GetPurchaseDashboard(c *fiber.Ctx) error {
 	}
 
 	return utils.RespApi(c, "ok", "Berhasil mendapatkan data Purchase Dashboard", result)
+}
+func (h *DashboardHandler) GetSuperadminDashboard(c *fiber.Ctx) error {
+	// 1. Get User Counts by Role
+	var roleCounts []struct {
+		RoleName string `json:"role_name"`
+		Count    int64  `json:"count"`
+	}
+	h.DB.Table("users").
+		Select("roles.name as role_name, COUNT(users.id) as count").
+		Joins("LEFT JOIN roles ON users.role_id = roles.id").
+		Group("roles.name").
+		Scan(&roleCounts)
+
+	// 2. Recent Users
+	var recentUsers []authModels.User
+	h.DB.Model(&authModels.User{}).
+		Preload("Role").
+		Order("created_at DESC").
+		Limit(5).
+		Find(&recentUsers)
+
+	// 3. System Stats
+	var totalUsers, totalRoles, totalPermissions int64
+	h.DB.Model(&authModels.User{}).Count(&totalUsers)
+	h.DB.Model(&authModels.Role{}).Count(&totalRoles)
+	h.DB.Model(&authModels.Permission{}).Count(&totalPermissions)
+
+	result := fiber.Map{
+		"role_counts":       roleCounts,
+		"recent_users":      recentUsers,
+		"total_users":       totalUsers,
+		"total_roles":       totalRoles,
+		"total_permissions": totalPermissions,
+	}
+
+	return utils.RespApi(c, "ok", "Berhasil mendapatkan Superadmin Dashboard", result)
 }

@@ -1,0 +1,94 @@
+🐘 Menggunakan PostgreSQL: host=localhost port=5432 user=aldev password=#developer123 dbname=washpos_db sslmode=disable
+✅ Connection berhasil: {0 1 0 1 0 0s 0 0 0}
+🔌 Menginisialisasi koneksi Redis...
+💞 Redis terhubung!
+✅ Redis terhubung
+
+🧹 ========== MENGGHAPUS DATA LAMA ==========
+🗑️ Menghapus cache permission...
+ℹ️  [CACHE] No permission caches to invalidate
+🗑️ Menghapus data role_permissions dan permissions...
+✅ Data permission lama dibersihkan
+
+📋 ========== MEMINDAI ACL DARI ROUTE ==========
+🔍 Ditemukan 69 ACL mentah
+✨ 69 permission unik setelah normalisasi
+
+💾 ========== MEMBUAT PERMISSION ==========
+✅ Created: Delete Principle (ID=b0191d85-7fd1-4f72-a44b-a4098b34ec9d)
+✅ Created: Add RawMaterial (ID=a45bd1c8-b017-47f6-8295-9e720d7bbdde)
+✅ Created: Add Product (ID=cd7cfdb6-3021-491d-974a-39ea6a21d81d)
+✅ Created: Finish Adjustment (ID=9ee73df5-d19a-49f6-add9-a954f701f3e6)
+✅ Created: Add Service (ID=3debe96c-0759-4c43-bde7-706681c65eb2)
+✅ Created: Update Agent (ID=d1116271-ffac-4aa1-9cc1-9d67620ebf2c)
+✅ Created: Update Product (ID=1ab16f3d-7c97-4f74-a2cb-05587d5e8374)
+✅ Created: Delete Adjustment (ID=a5101d5a-f0af-4337-b895-e20c30e1f527)
+✅ Created: Add Journal (ID=2fe991a8-4100-4ebf-adf9-ee80cec2e01d)
+✅ Created: Add Voucher (ID=bb68c53c-63d9-4700-bfb2-ef9fd9ca7091)
+✅ Created: Add Role (ID=e06235d3-f9aa-435d-b85d-f8cd7a33b749)
+✅ Created: Read ExampleRich (ID=a2db6e50-97da-4234-8f66-bd1c16f46e9c)
+✅ Created: Update ExampleRich (ID=eaf5c0d2-6d3e-4100-992e-401a797d27e8)
+✅ Created: Read Principle (ID=095508a3-badf-414c-b092-a2d2d94b2a8b)
+✅ Created: Read Service (ID=25259749-a139-4578-b7e5-75513bef3775)
+✅ Created: Add Purchase (ID=bb4ea00b-4bee-4f3b-b733-1fbef8ff039c)
+✅ Created: Delete Agent (ID=38ba513d-1ec0-44bd-8171-b4032aefd1af)
+✅ Created: Delete Role (ID=263e184e-a98d-4ac8-9b43-3114100d4d86)
+✅ Created: Read Permission (ID=dbce6892-303e-4c7f-b573-ac84f2a9dc65)
+✅ Created: Add ProductType (ID=ba314e98-a166-4b99-b3ee-6d771706f4fb)
+✅ Created: Read Product (ID=1024e541-47e2-4b99-83aa-26017ecf5d37)
+✅ Created: Read RawMaterial (ID=994a3ded-5dca-4407-aed5-a96a5a58725f)
+✅ Created: agent_order (ID=773567b9-6cc8-4cef-91a0-2cfc05d7b114)
+✅ Created: Update Role (ID=bd9130fb-8870-4917-ab72-0777af73fdb0)
+✅ Created: Read Purchase (ID=255fad63-d0f7-41eb-b974-61e8e2e73677)
+✅ Created: Update Adjustment (ID=3c1aef93-7804-4fff-a559-8d12281cf847)
+✅ Created: Assign User (ID=8354609f-797d-41c1-be7f-12b1deca9f15)
+✅ Created: Read Dashboard (ID=2d238681-fd1e-45a4-989d-851cd8a4396a)
+✅ Created: Delete Service (ID=06674c39-a3d7-45a9-bc46-1cd519e3db90)
+✅ Created: Update RawMaterial (ID=3797e132-cdc7-4608-8f5f-c96d4f623843)
+✅ Created: Delete RawMaterial (ID=d47f0ad9-21d6-4874-8358-7e251aa5f6ec)
+✅ Created: Read Journal (ID=77c59024-2137-4fc8-b96b-f5f756880c45)
+✅ Created: Delete Product (ID=85a114d5-9471-4e1f-8596-635f4a00e340)
+✅ Created: Read Order (ID=af120c94-df6d-494a-aceb-765b3e45e587)
+✅ Created: Update Service (ID=584804c7-6a99-4611-8401-3a795cacddda)
+✅ Created: Read Finance (ID=b57cca72-3999-4553-92e9-e9303808cd8f)
+✅ Created: Add Order (ID=feed5456-2c6d-43b6-81e3-37334de8f8e7)
+✅ Created: Refund Order (ID=be176bc6-5e7c-42e0-bbb2-700bec234c87)
+✅ Created: Update Voucher (ID=4ed566db-5a4f-4366-bbaa-f69618f961c1)
+✅ Created: Update User (ID=d800331a-6961-45ae-a34b-a3d9c87b2e23)
+✅ Created: Add ExampleRich (ID=645e1070-fcf5-4073-b179-ef257309896e)
+✅ Created: Delete ProductType (ID=5e6675e7-dd28-4dd3-80c9-6f95c271b44a)
+✅ Created: Add Principle (ID=2e63d2eb-d9f0-4e7c-aad2-d32b2fde26d8)
+✅ Created: Cancel Order (ID=61450faf-dcd6-4b93-9c41-190fc9e90627)
+✅ Created: Update Order (ID=880e8d96-5cca-43d0-9a35-121476105e12)
+✅ Created: Read WhatsappIntegration (ID=086122f1-fe15-413f-ac86-a2de6c812100)
+✅ Created: Send WhatsappIntegration (ID=b72c2843-daa3-410b-8509-378723b5f7d3)
+✅ Created: Read Role (ID=640a141e-944a-4b5a-bcbb-5bf35447de0e)
+✅ Created: Update ProductType (ID=e8c97da4-dcae-44ff-b4d6-62e457e93562)
+✅ Created: Add Agent (ID=bfab53a2-0101-4fa5-88c6-d40c07e165c6)
+✅ Created: Read User (ID=a1c84399-af03-46ce-9ec7-a1bbc1d99502)
+✅ Created: Add Setting (ID=891801b7-27ca-4f7b-b7a5-d8ad23ef378b)
+✅ Created: Delete Setting (ID=2d40a722-cb1b-43ae-a59d-8ec96ada1e5e)
+✅ Created: Delete Purchase (ID=b3700a7b-c432-41e0-947b-5de1cccd1b3f)
+✅ Created: Read StockMovement (ID=3ebe6280-8b20-4f4f-8499-b3b65b7b5dea)
+✅ Created: Delete Journal (ID=cf26e6a0-a946-42e9-b0ea-5312e212c84a)
+✅ Created: Read Voucher (ID=6e575541-a766-4c70-8b15-836749490c2d)
+✅ Created: Delete Voucher (ID=ae7cb60d-8490-415b-bae2-cc47c5767938)
+✅ Created: Read Setting (ID=3eb8864b-b769-45de-b017-6225de0291df)
+✅ Created: Delete ExampleRich (ID=04b3340f-9f80-4e53-b5ef-a9a7db56d09e)
+✅ Created: Update Purchase (ID=e0626c64-4625-4d06-a165-329cf584b3e8)
+✅ Created: Read Adjustment (ID=83a52021-c9a1-454d-b37b-2bd8fc0a4acf)
+✅ Created: Add Adjustment (ID=00423d8c-8f59-43d4-8361-0ac3126b5308)
+✅ Created: Read Agent (ID=9b2fee43-4d1d-4c6e-8f56-02d0619d4b86)
+✅ Created: Add Permission (ID=7f5b1f1f-7cc0-4f4f-9d98-608b061b3ce7)
+✅ Created: Update Setting (ID=81c59af3-f9f6-4fbc-8a31-8f5a190437d2)
+✅ Created: Update Permission (ID=75a984d4-d641-4682-b9dc-62052f207cf6)
+✅ Created: Update Principle (ID=45545e7a-9e34-4330-b696-287ca025b2e6)
+✅ Created: Delete Permission (ID=f96449bc-7ff8-42d2-9774-78ff082754f0)
+
+👑 ========== MENYIAPKAN ROLE & PERMISSION ==========
+✅ Roles & Permissions configured for all 5 roles
+
+👤 ========== MENYIAPKAN USER SEEDER ==========
+
+🎉 ========== SEEDING SELESAI ==========
+✅ 5 Role dan User Test berhasil dikonfigurasi!
