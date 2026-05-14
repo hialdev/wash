@@ -18,5 +18,5 @@ type OrderProcessLog struct {
 	Description  *string          `json:"description,omitempty" gorm:"type:text"`
 	Images       *string          `json:"images,omitempty" gorm:"type:text"` // JSON array of relative URLs
 	CreatedByID  *uuid.UUID       `json:"created_by_id" gorm:"type:uuid"`
-	CreatedBy    *authModels.User `json:"created_by,omitempty" gorm:"foreignKey:CreatedByID"`
+	CreatedBy    *authModels.User `json:"created_by,omitempty" gorm:"foreignKey:CreatedByID;references:ID"`
 }

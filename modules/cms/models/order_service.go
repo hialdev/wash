@@ -36,7 +36,7 @@ type OrderServiceProcess struct {
 	Description    *string          `json:"description,omitempty" gorm:"type:text"`
 	Images         *string          `json:"images,omitempty" gorm:"type:text"` // JSON Array
 	CreatedBy      *uuid.UUID       `json:"created_by" gorm:"type:uuid"`
-	Creator        *authModels.User `json:"creator,omitempty" gorm:"foreignKey:CreatedBy"`
+	Creator        *authModels.User `json:"creator,omitempty" gorm:"foreignKey:CreatedBy;references:ID"`
 }
 
 type OrderServiceDetail struct {
