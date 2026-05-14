@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
          },
          {
             protocol: 'https',
-            hostname: 'api.rkgtour.com',
+            hostname: 'api.luta.wazz.co.id',
          },
       ],
    },
