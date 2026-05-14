@@ -34,8 +34,13 @@ export default function UsedRawMaterialList({ orderId }: Props) {
          try {
             const res = await getOrderMovements({ orderId });
             setMovements(res || []);
-         } catch (error) {
-            console.error('Failed to load raw material movements', error);
+         } catch (error: any) {
+            // Silently ignore permission errors (e.g. kasir doesn't have Read RawMaterial)
+            const status = error?.response?.status ?? error?.status;
+            if (status !== 403 && status !== 401) {
+               console.error('Failed to load raw material movements', error);
+            }
+            setMovements([]);
          } finally {
             setLoading(false);
          }

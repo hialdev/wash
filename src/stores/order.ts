@@ -11,11 +11,20 @@ export interface CreateOrderInput {
    address_receiver: string;
    phone_receiver: string;
    notes?: string;
+   weight_kg?: number;
+   total_pcs?: number;
+   voucher_code?: string;
    products: {
       product_id: string;
       qty: number;
-      requested_length?: number; // For individual tracking products
-      measurement_unit?: string; // For individual tracking products
+      requested_length?: number;
+      measurement_unit?: string;
+   }[];
+   services: {
+      service_id: string;
+      service_variant_id?: string;
+      qty: number;
+      notes?: string;
    }[];
 }
 
@@ -27,11 +36,13 @@ interface OrderState {
    detail: ({ id }: { id: string }) => Promise<any>;
    add: ({ data }: { data: any }) => Promise<any>;
    createOrder: ({ data }: { data: CreateOrderInput }) => Promise<any>;
+   kasirCreateOrder: ({ data }: { data: CreateOrderInput }) => Promise<any>;
    checkout: ({ data }: { data: CreateOrderInput }) => Promise<any>;
    getMyOrders: (params?: any) => Promise<any>;
    getMyOrder: ({ id }: { id: string }) => Promise<any>;
    requestRefund: ({ id }: { id: string }) => Promise<any>;
    waitRestock: ({ id }: { id: string }) => Promise<any>;
+   rateOrder: ({ id, data }: { id: string; data: { rating: number; review?: string } }) => Promise<any>;
 
    // Admin actions
    adminRefund: ({ id, data }: { id: string; data: FormData }) => Promise<any>;
@@ -46,7 +57,14 @@ interface OrderState {
       data,
    }: {
       id: string;
-      data: { action: string; reason?: string };
+      data: { action: string; reason?: string; payment_method?: string };
+   }) => Promise<any>;
+   kasirValidateAndProcess: ({
+      id,
+      data,
+   }: {
+      id: string;
+      data: { weight_kg?: number; total_pcs?: number; notes?: string };
    }) => Promise<any>;
 }
 
@@ -97,6 +115,15 @@ const useOrderStore = create<OrderState>()(
             }
             return response.data;
          },
+         kasirCreateOrder: async ({ data }) => {
+            const response = await protectedApi.post(`/orders`, data);
+            if (response.data.success && response.data.data) {
+               set((state) => ({
+                  orders: [response.data.data, ...state.orders],
+               }));
+            }
+            return response.data;
+         },
          checkout: async ({ data }) => {
             const response = await protectedApi.post(`/user/checkout`, data);
             // No need to update global admin/all orders state here, my-orders view will fetch own data
@@ -133,6 +160,10 @@ const useOrderStore = create<OrderState>()(
          },
          waitRestock: async ({ id }) => {
             const response = await protectedApi.post(`/orders/${id}/wait-restock`);
+            return response.data;
+         },
+         rateOrder: async ({ id, data }) => {
+            const response = await protectedApi.post(`/user/my-orders/${id}/rate`, data);
             return response.data;
          },
 
@@ -175,6 +206,10 @@ const useOrderStore = create<OrderState>()(
          },
          verifyPayment: async ({ id, data }) => {
             const response = await protectedApi.post(`/orders/${id}/verify-payment`, data);
+            return response.data;
+         },
+         kasirValidateAndProcess: async ({ id, data }) => {
+            const response = await protectedApi.post(`/orders/${id}/kasir-validate-and-process`, data);
             return response.data;
          },
       }),

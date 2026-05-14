@@ -20,6 +20,7 @@ import { ConfirmDialog } from 'src/components/custom-dialog';
 import { CustomPopover } from 'src/components/custom-popover';
 
 import { UserCUForm } from '../forms/user-cu-form';
+import useAuthStore from 'src/stores/auth';
 
 
 // ----------------------------------------------------------------------
@@ -34,9 +35,16 @@ type Props = {
 };
 
 export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow, onSuccessEdit }: Props) {
+   const { user: currentUserSession } = useAuthStore();
    const menuActions = usePopover();
    const confirmDialog = useBoolean();
    const quickEditForm = useBoolean();
+
+   const myRole = currentUserSession?.role?.name?.toLowerCase() || '';
+   const rowUserRole = row.role?.name?.toLowerCase() || '';
+
+   // Manager cannot edit or delete other Managers
+   const canEditOrDelete = !(myRole === 'manager' && rowUserRole === 'manager');
 
    const renderQuickEditForm = () => (
       <UserCUForm
@@ -87,16 +95,18 @@ export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow
       <>
          <TableRow hover selected={selected} aria-checked={selected} tabIndex={-1}>
             <TableCell padding="checkbox">
-               <Checkbox
-                  checked={selected}
-                  onClick={onSelectRow}
-                  slotProps={{
-                     input: {
-                        id: `${row.id}-checkbox`,
-                        'aria-label': `${row.id} checkbox`,
-                     },
-                  }}
-               />
+               {canEditOrDelete && (
+                  <Checkbox
+                     checked={selected}
+                     onClick={onSelectRow}
+                     slotProps={{
+                        input: {
+                           id: `${row.id}-checkbox`,
+                           'aria-label': `${row.id} checkbox`,
+                        },
+                     }}
+                  />
+               )}
             </TableCell>
 
             <TableCell>
@@ -123,23 +133,25 @@ export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow
             <TableCell sx={{ whiteSpace: 'nowrap' }}><Chip variant='soft' color='info' label={row.role_id ? row.role?.name : 'not set'} /></TableCell>
 
             <TableCell>
-               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Tooltip title="Quick edit" placement="top" arrow>
-                     <IconButton
-                        color={quickEditForm.value ? 'inherit' : 'default'}
-                        onClick={quickEditForm.onTrue}
-                     >
-                        <Iconify icon="solar:pen-bold" />
-                     </IconButton>
-                  </Tooltip>
+               {canEditOrDelete && (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                     <Tooltip title="Quick edit" placement="top" arrow>
+                        <IconButton
+                           color={quickEditForm.value ? 'inherit' : 'default'}
+                           onClick={quickEditForm.onTrue}
+                        >
+                           <Iconify icon="solar:pen-bold" />
+                        </IconButton>
+                     </Tooltip>
 
-                  <IconButton
-                     color={menuActions.open ? 'inherit' : 'default'}
-                     onClick={menuActions.onOpen}
-                  >
-                     <Iconify icon="eva:more-vertical-fill" />
-                  </IconButton>
-               </Box>
+                     <IconButton
+                        color={menuActions.open ? 'inherit' : 'default'}
+                        onClick={menuActions.onOpen}
+                     >
+                        <Iconify icon="eva:more-vertical-fill" />
+                     </IconButton>
+                  </Box>
+               )}
             </TableCell>
          </TableRow>
 

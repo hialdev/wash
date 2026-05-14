@@ -75,7 +75,13 @@ export function CheckoutView() {
          try {
             const res = await fetchVouchers({ is_public: true, is_active: true });
             if (res?.data) {
-               setPublicVouchers(res.data);
+               const now = new Date();
+               const validVouchers = (res.data as IVoucher[]).filter((v) => {
+                  const notExpired = !v.valid_until || new Date(v.valid_until) > now;
+                  const hasQuota = v.quota == null || v.used_count < v.quota;
+                  return v.is_active && notExpired && hasQuota;
+               });
+               setPublicVouchers(validVouchers);
             }
          } catch (err) {
             console.error(err);
@@ -183,6 +189,7 @@ export function CheckoutView() {
             // Map service items
             services: serviceItems.map((item) => ({
                service_id: item.service.id!,
+               service_variant_id: item.variant?.id,
                qty: item.qty,
                notes: item.notes,
             })),
@@ -380,7 +387,8 @@ export function CheckoutView() {
                               Services ({serviceItems.length})
                            </Typography>
                            {serviceItems.map((item, i) => {
-                              const subtotal = (item.service.price || 0) * item.qty;
+                              const currentPrice = item.variant?.price || item.service.price || 0;
+                              const subtotal = currentPrice * item.qty;
 
                               return (
                                  <Box
@@ -415,11 +423,11 @@ export function CheckoutView() {
 
                                     <Box sx={{ flexGrow: 1 }}>
                                        <Typography variant="subtitle1">
-                                          {item.service.name}
+                                          {item.service.name} {item.variant && `— ${item.variant.name}`}
                                        </Typography>
                                        <Typography variant="body2" color="text.secondary">
-                                          {fCurrency(item.service.price || 0)} × {item.qty}{' '}
-                                          {item.service.unit}
+                                          {fCurrency(item.variant?.price || item.service.price || 0)} × {item.qty}{' '}
+                                          {item.variant?.unit || item.service.unit}
                                        </Typography>
                                        {item.notes && (
                                           <Typography

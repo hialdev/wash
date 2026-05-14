@@ -21,6 +21,7 @@ import { OrderDetailsPayment } from '../order-details-payment';
 import { OrderDetailsCustomer } from '../order-details-customer';
 import { OrderDetailsDelivery } from '../order-details-delivery';
 import { OrderDetailsShipping } from '../order-details-shipping';
+import { OrderDetailsPhysical } from '../order-details-physical';
 
 // ----------------------------------------------------------------------
 
@@ -67,6 +68,13 @@ export function OrderDetailsView({ order }: Props) {
         <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <OrderDetailsCustomer customer={order?.customer} />
+
+            <Divider sx={{ borderStyle: 'dashed' }} />
+            <OrderDetailsPhysical
+              weight={order?.weight_kg}
+              totalPcs={order?.total_pcs}
+              notes={order?.notes}
+            />
 
             <Divider sx={{ borderStyle: 'dashed' }} />
             <OrderDetailsDelivery delivery={order?.delivery} />

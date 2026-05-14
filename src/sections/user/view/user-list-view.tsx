@@ -22,6 +22,9 @@ import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { _roles, _userList, USER_STATUS_OPTIONS } from 'src/_mock';
+import useUserStore from 'src/stores/user';
+import useRoleStore from 'src/stores/role';
+import { useEffect } from 'react';
 
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
@@ -65,7 +68,23 @@ export function UserListView() {
 
    const confirmDialog = useBoolean();
 
-   const [tableData, setTableData] = useState<IUserItem[]>(_userList);
+   const userStore = useUserStore();
+   const roleStore = useRoleStore();
+
+   const [tableData, setTableData] = useState<IUserItem[]>([]);
+
+   useEffect(() => {
+      const fetchData = async () => {
+         const usersResponse = await userStore.all({ sort: 'created_at', order: 'desc' });
+         if (usersResponse.success && usersResponse.data) {
+             setTableData(usersResponse.data);
+         }
+         await roleStore.all();
+      };
+      fetchData();
+   }, []);
+
+   const rolesOptions = roleStore.roles.map(r => r.name);
 
    const filters = useSetState<IUserTableFilters>({ name: '', role: [], status: 'all' });
    const { state: currentFilters, setState: updateFilters } = filters;
@@ -204,7 +223,7 @@ export function UserListView() {
                <UserTableToolbar
                   filters={filters}
                   onResetPage={table.onResetPage}
-                  options={{ roles: _roles }}
+                  options={{ roles: rolesOptions }}
                />
 
                {canReset && (

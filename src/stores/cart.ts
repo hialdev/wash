@@ -16,7 +16,8 @@ export interface CartItem {
 // ─── Service Cart ───────────────────────────────────────────────────────────
 
 export interface ServiceCartItem {
-   service: IService;
+   service: IService; // Parent service
+   variant?: IService; // Selected variant
    qty: number; // bisa desimal, e.g. 0.5 (setengah unit)
    notes?: string;
 }
@@ -47,9 +48,9 @@ interface CartState {
    updateQty: (productId: string, qty: number, requestedLength?: number) => void;
 
    // Service actions
-   addServiceItem: (service: IService, qty: number, notes?: string) => void;
-   removeServiceItem: (serviceId: string) => void;
-   updateServiceQty: (serviceId: string, qty: number) => void;
+   addServiceItem: (service: IService, qty: number, notes?: string, variant?: IService) => void;
+   removeServiceItem: (serviceId: string, variantId?: string) => void;
+   updateServiceQty: (serviceId: string, qty: number, variantId?: string) => void;
 
    // Shared actions
    clearCart: () => void;
@@ -157,35 +158,47 @@ const useCartStore = create<CartState>()(
 
          // ─── Service actions ──────────────────────────────────────────────────
 
-         addServiceItem: (service, qty, notes) => {
+         addServiceItem: (service, qty, notes, variant) => {
             const { serviceItems } = get();
-            const existing = serviceItems.find((i) => i.service.id === service.id);
+            const variantId = variant?.id;
+
+            const existing = serviceItems.find(
+               (i) => i.service.id === service.id && i.variant?.id === variantId
+            );
 
             if (existing) {
                set({
                   serviceItems: serviceItems.map((i) =>
-                     i.service.id === service.id ? { ...i, qty: i.qty + qty, notes } : i
+                     i.service.id === service.id && i.variant?.id === variantId
+                        ? { ...i, qty: i.qty + qty, notes }
+                        : i
                   ),
                });
             } else {
-               set({ serviceItems: [...serviceItems, { service, qty, notes }] });
+               set({
+                  serviceItems: [...serviceItems, { service, variant, qty, notes }],
+               });
             }
          },
 
-         removeServiceItem: (serviceId) => {
+         removeServiceItem: (serviceId, variantId) => {
             set((state) => ({
-               serviceItems: state.serviceItems.filter((i) => i.service.id !== serviceId),
+               serviceItems: state.serviceItems.filter(
+                  (i) => !(i.service.id === serviceId && i.variant?.id === variantId)
+               ),
             }));
          },
 
-         updateServiceQty: (serviceId, qty) => {
+         updateServiceQty: (serviceId, qty, variantId) => {
             if (qty <= 0) {
-               get().removeServiceItem(serviceId);
+               get().removeServiceItem(serviceId, variantId);
                return;
             }
             set((state) => ({
                serviceItems: state.serviceItems.map((i) =>
-                  i.service.id === serviceId ? { ...i, qty } : i
+                  i.service.id === serviceId && i.variant?.id === variantId
+                     ? { ...i, qty }
+                     : i
                ),
             }));
          },
@@ -238,10 +251,10 @@ const useCartStore = create<CartState>()(
          },
 
          getServiceTotalPrice: () => {
-            return get().serviceItems.reduce(
-               (total, item) => total + (item.service.price || 0) * item.qty,
-               0
-            );
+            return get().serviceItems.reduce((total, item) => {
+               const price = item.variant?.price || item.service.price || 0;
+               return total + price * item.qty;
+            }, 0);
          },
 
          getTotalPrice: () => {

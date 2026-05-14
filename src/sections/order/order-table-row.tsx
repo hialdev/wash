@@ -64,10 +64,10 @@ export function OrderTableRow({ row, selected, onSelectRow, onDeleteRow, details
 
       <TableCell>
         <Box sx={{ gap: 2, display: 'flex', alignItems: 'center' }}>
-          <Avatar alt={row.customer.name} src={row.customer.avatarUrl} />
+          <Avatar alt={row.customer?.name} src={row.customer?.avatarUrl} />
           <ListItemText
-            primary={row.customer.name}
-            secondary={row.customer.email}
+            primary={row.customer?.name}
+            secondary={row.customer?.email}
             slotProps={{
               primary: {
                 sx: { typography: 'body2' },
@@ -82,8 +82,8 @@ export function OrderTableRow({ row, selected, onSelectRow, onDeleteRow, details
 
       <TableCell>
         <ListItemText
-          primary={fDate(row.createdAt)}
-          secondary={fTime(row.createdAt)}
+          primary={fDate(row.createdAt || row.created_at)}
+          secondary={fTime(row.createdAt || row.created_at)}
           slotProps={{
             primary: {
               noWrap: true,
@@ -96,9 +96,9 @@ export function OrderTableRow({ row, selected, onSelectRow, onDeleteRow, details
         />
       </TableCell>
 
-      <TableCell align="center"> {row.totalQuantity} </TableCell>
+      <TableCell align="center"> {row.totalQuantity || 0} </TableCell>
 
-      <TableCell> {fCurrency(row.subtotal)} </TableCell>
+      <TableCell> {fCurrency(row.totalAmount || row.total_bill || 0)} </TableCell>
 
       <TableCell>
         <Label
@@ -140,7 +140,7 @@ export function OrderTableRow({ row, selected, onSelectRow, onDeleteRow, details
           sx={{ bgcolor: 'background.neutral' }}
         >
           <Paper sx={{ m: 1.5 }}>
-            {row.items.map((item) => (
+            {(row as any).items?.map((item: any) => (
               <Box
                 key={item.id}
                 sx={(theme) => ({

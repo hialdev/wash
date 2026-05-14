@@ -2,347 +2,190 @@ import type { NavSectionProps } from 'src/components/nav-section';
 
 import { paths } from 'src/routes/al/paths';
 
+import { CONFIG } from 'src/global-config';
+
+import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
+import { SvgColor } from 'src/components/svg-color';
 
 // ----------------------------------------------------------------------
 
-const icon = (name: string) => <Iconify icon={name} />;
+const icon = (name: string) => (
+   <SvgColor src={`${CONFIG.assetsDir}/assets/icons/navbar/${name}.svg`} />
+);
+
+const ICONS = {
+   job: icon('ic-job'),
+   blog: icon('ic-blog'),
+   chat: icon('ic-chat'),
+   mail: icon('ic-mail'),
+   user: icon('ic-user'),
+   file: icon('ic-file'),
+   lock: icon('ic-lock'),
+   tour: icon('ic-tour'),
+   order: icon('ic-order'),
+   label: icon('ic-label'),
+   blank: icon('ic-blank'),
+   kanban: icon('ic-kanban'),
+   folder: icon('ic-folder'),
+   course: icon('ic-course'),
+   params: icon('ic-params'),
+   banking: icon('ic-banking'),
+   booking: icon('ic-booking'),
+   invoice: icon('ic-invoice'),
+   product: icon('ic-product'),
+   calendar: icon('ic-calendar'),
+   disabled: icon('ic-disabled'),
+   external: icon('ic-external'),
+   subpaths: icon('ic-subpaths'),
+   menuItem: icon('ic-menu-item'),
+   ecommerce: icon('ic-ecommerce'),
+   analytics: icon('ic-analytics'),
+   dashboard: icon('ic-dashboard'),
+   service: icon('ic-label'),
+   voucher: icon('ic-label'),
+};
 
 // ----------------------------------------------------------------------
 
 /**
  * Input nav data is an array of navigation section items used to define the structure and content of a navigation bar.
  * Each section contains a subheader and an array of items, which can include nested children items.
- *
- * Each item can have the following properties:
- * - `title`: The title of the navigation item.
- * - `path`: The URL path the item links to.
- * - `icon`: An optional icon component to display alongside the title.
- * - `info`: Optional additional information to display, such as a label.
- * - `allowedRoles`: An optional array of roles that are allowed to see the item.
- * - `caption`: An optional caption to display below the title.
- * - `children`: An optional array of nested navigation items.
- * - `disabled`: An optional boolean to disable the item.
- * - `deepMatch`: An optional boolean to indicate if the item should match subpaths.
  */
 export const navData: NavSectionProps['data'] = [
    /**
-    * Dashboard
+    * Overview
     */
    {
-      subheader: 'Dashboard',
+      subheader: 'Overview',
       items: [
-         {
-            title: 'Overview',
-            path: paths.dashboard.root,
-            icon: icon('solar:widget-5-bold-duotone'),
-         },
-         {
-            title: 'Analytics',
-            path: paths.dashboard.analytics.sales,
-            icon: icon('solar:chart-2-bold-duotone'),
-            requiredPermissions: ['Read Dashboard'],
+         { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard },
+         { title: 'Katalog', path: paths.dashboard.customer_orders.catalog, icon: ICONS.ecommerce, allowedRoles: ['customer'] },
+         { title: 'Pesanan Saya', path: paths.dashboard.customer_orders.my_orders, icon: ICONS.order, allowedRoles: ['customer'] },
+         { 
+            title: 'Analytics', 
+            path: paths.dashboard.analytics.sales, 
+            icon: ICONS.analytics, 
+            allowedRoles: ['manager', 'owner'],
             children: [
                { title: 'Sales', path: paths.dashboard.analytics.sales },
-               { title: 'Stock', path: paths.dashboard.analytics.stock },
-               { title: 'Purchase', path: paths.dashboard.analytics.purchase },
-               { title: 'Super Sales', path: paths.dashboard.analytics.superSales },
-            ],
+            ]
          },
       ],
    },
    /**
-    * Master Data
+    * Transaction (For Kasir & Managers)
     */
    {
-      subheader: 'Master Data',
-      requiredPermissions: ['Read ProductType', 'Read Product', 'Read Principle'],
+      subheader: 'Transaksi',
       items: [
          {
-            title: 'Product Types',
-            path: paths.dashboard.product_types.root,
-            icon: icon('solar:tag-bold-duotone'),
-            requiredPermissions: ['Read ProductType'],
-         },
-         {
-            title: 'Banks',
-            path: paths.dashboard.banks.root,
-            icon: icon('solar:card-bold-duotone'),
-         },
-         {
-            title: 'Products',
-            path: paths.dashboard.products.root,
-            icon: icon('solar:box-bold-duotone'),
-            requiredPermissions: ['Read Product'],
-            children: [
-               {
-                  title: 'List',
-                  path: paths.dashboard.products.root,
-                  requiredPermissions: ['Read Product'],
-               },
-               {
-                  title: 'Create',
-                  path: paths.dashboard.products.create,
-                  requiredPermissions: ['Add Product'],
-               },
-            ],
-         },
-         {
-            title: 'Principles',
-            path: paths.dashboard.principles.root,
-            icon: icon('solar:users-group-two-rounded-bold-duotone'),
-            requiredPermissions: ['Read Principle'],
-         },
-         {
-            title: 'Services',
-            path: paths.dashboard.service.root,
-            icon: icon('solar:washing-machine-bold-duotone'),
-            requiredPermissions: ['Read Service'],
-            children: [
-               {
-                  title: 'List',
-                  path: paths.dashboard.service.root,
-                  requiredPermissions: ['Read Service'],
-               },
-               {
-                  title: 'Create',
-                  path: paths.dashboard.service.new,
-                  requiredPermissions: ['Add Service'],
-               },
-            ],
-         },
-      ],
-   },
-   /**
-    * Purchasing
-    */
-   {
-      subheader: 'Purchasing',
-      requiredPermissions: ['Read Purchase', 'Add Purchase', 'Update Purchase', 'Delete Purchase'],
-      items: [
-         {
-            title: 'Purchases',
-            path: paths.dashboard.purchases.root,
-            icon: icon('solar:cart-large-2-bold-duotone'),
-            requiredPermissions: ['Read Purchase'],
-            children: [
-               {
-                  title: 'List',
-                  path: paths.dashboard.purchases.root,
-                  requiredPermissions: ['Read Purchase'],
-               },
-               {
-                  title: 'Create',
-                  path: paths.dashboard.purchases.create,
-                  requiredPermissions: ['Add Purchase'],
-               },
-            ],
-         },
-         {
-            title: 'Adjustments',
-            path: paths.dashboard.adjustments.root,
-            icon: icon('solar:slider-vertical-bold-duotone'),
-            requiredPermissions: ['Read Adjustment'],
-         },
-         {
-            title: 'Stock Movements',
-            path: paths.dashboard.stock_movements.root,
-            icon: icon('solar:history-bold-duotone'),
-            requiredPermissions: ['Read StockMovement'],
-         },
-         {
-            title: 'Inventory Items',
-            path: paths.dashboard.inventory_items,
-            icon: icon('solar:clipboard-list-bold-duotone'),
-            requiredPermissions: ['Read Product'],
-         },
-      ],
-   },
-   /**
-    * Raw Material (COGS)
-    */
-   {
-      subheader: 'Raw Material',
-      requiredPermissions: ['Read RawMaterial'],
-      items: [
-         {
-            title: 'Raw Material',
-            path: paths.dashboard.rawMaterials.root,
-            icon: icon('solar:test-tube-bold-duotone'),
-            requiredPermissions: ['Read RawMaterial'],
-         },
-         {
-            title: 'Raw Material Purchase',
-            path: paths.dashboard.rawMaterialPurchases.root,
-            icon: icon('solar:cart-plus-bold-duotone'),
-            requiredPermissions: ['Read RawMaterial'],
-         },
-         {
-            title: 'Raw Material Movements',
-            path: paths.dashboard.rawMaterialMovements.root,
-            icon: icon('solar:history-bold-duotone'),
-            requiredPermissions: ['Read RawMaterial'],
-         },
-      ],
-   },
-   /**
-    * Agent Management
-    */
-   {
-      subheader: 'Agent Management',
-      requiredPermissions: ['Read Agent', 'agent_order', 'Read Finance'],
-      items: [
-         {
-            title: 'Agents',
-            path: paths.dashboard.agents.root,
-            icon: icon('solar:users-group-two-rounded-bold-duotone'),
-            requiredPermissions: ['Read Agent'],
-         },
-         {
-            title: 'Order Agent',
-            path: paths.dashboard.agents.order,
-            icon: icon('solar:shop-bold-duotone'),
-            requiredPermissions: ['agent_order'],
-         },
-         {
-            title: 'Pelanggan Saya',
-            path: paths.dashboard.agents.myCustomers,
-            icon: icon('solar:user-id-bold-duotone'),
-            requiredPermissions: ['agent_order'],
-         },
-         {
-            title: 'Report Finance',
-            path: paths.dashboard.agents.report,
-            icon: icon('solar:graph-bold-duotone'),
-            requiredPermissions: ['Read Finance'],
-         },
-      ],
-   },
-
-   /**
-    * Sales
-    */
-   {
-      subheader: 'Sales',
-      requiredPermissions: ['Read Order', 'Read Voucher'],
-      items: [
-         {
-            title: 'Orders',
+            title: 'Pesanan Layanan',
             path: paths.dashboard.orders.root,
-            icon: icon('solar:bag-4-bold-duotone'),
-            requiredPermissions: ['Read Order'], // Requires Read Order permission
+            icon: ICONS.order,
+            allowedRoles: ['kasir', 'staff', 'karyawan', 'manager', 'owner'],
+            children: [
+               { title: 'Daftar Pesanan', path: paths.dashboard.orders.root },
+               { title: 'Buat Pesanan', path: paths.dashboard.orders.boarding, allowedRoles: ['kasir', 'staff', 'karyawan', 'manager', 'owner'] },
+            ],
          },
          {
-            title: 'Vouchers',
-            path: paths.dashboard.vouchers.root,
-            icon: icon('solar:ticket-sale-bold-duotone'),
-            requiredPermissions: ['Read Voucher'],
-            children: [
-               {
-                  title: 'List',
-                  path: paths.dashboard.vouchers.root,
-                  requiredPermissions: ['Read Voucher'],
-               },
-               {
-                  title: 'Create',
-                  path: paths.dashboard.vouchers.new,
-                  requiredPermissions: ['Add Voucher'],
-               },
-            ],
+            title: 'Customer',
+            path: paths.dashboard.customers.root,
+            icon: ICONS.user,
+            allowedRoles: ['kasir', 'staff', 'karyawan', 'manager', 'owner'],
          },
       ],
    },
    /**
-    * Finance
+    * Management (For Manager & Owner)
     */
    {
-      subheader: 'Finance',
-      requiredPermissions: ['Read Journal', 'Read Finance'],
-
+      subheader: 'Management',
       items: [
          {
-            title: 'Reports',
+            title: 'Karyawan',
+            path: paths.dashboard.users.root,
+            icon: ICONS.user,
+            allowedRoles: ['manager', 'owner'],
+         },
+         {
+            title: 'Layanan',
+            path: paths.dashboard.service.root,
+            icon: ICONS.service,
+            allowedRoles: ['manager', 'owner'],
+            children: [
+               { title: 'Daftar Layanan', path: paths.dashboard.service.root },
+               { title: 'Tambah Layanan', path: paths.dashboard.service.new },
+            ],
+         },
+         {
+            title: 'Finance',
             path: paths.dashboard.finance.reports,
-            icon: icon('solar:graph-bold-duotone'),
-            requiredPermissions: ['Read Finance'],
+            icon: ICONS.invoice,
+            allowedRoles: ['manager', 'owner'],
+            children: [
+               { title: 'Laporan Keuangan', path: paths.dashboard.finance.reports },
+               { title: 'Jurnal Umum', path: paths.dashboard.finance.journal.root },
+               { title: 'Rekening & QRIS', path: paths.dashboard.banks.root },
+            ],
          },
          {
-            title: 'Journal',
-            path: paths.dashboard.finance.journal.root,
-            icon: icon('solar:notebook-bold-duotone'),
-            requiredPermissions: ['Read Journal'],
+            title: 'Marketing',
+            path: paths.dashboard.vouchers.root,
+            icon: ICONS.voucher,
+            allowedRoles: ['manager', 'owner'],
             children: [
-               {
-                  title: 'List',
-                  path: paths.dashboard.finance.journal.root,
-               },
-               {
-                  title: 'Create',
-                  path: paths.dashboard.finance.journal.new,
-               },
+               { title: 'Vouchers', path: paths.dashboard.vouchers.root },
             ],
          },
       ],
    },
    /**
-    * Customer Order
+    * Inventory (For Manager & Owner)
     */
    {
-      subheader: 'Customer Order',
+      subheader: 'Inventory',
       items: [
          {
-            title: 'Catalog',
-            path: paths.dashboard.customer_orders.catalog,
-            icon: icon('solar:shop-bold-duotone'),
-         },
-         {
-            title: 'My Orders',
-            path: paths.dashboard.customer_orders.my_orders,
-            icon: icon('solar:clipboard-list-bold-duotone'),
-         },
-         {
-            title: 'Favorite',
-            path: paths.dashboard.customer_orders.favorite,
-            icon: icon('solar:heart-bold-duotone'),
+            title: 'Bahan Baku',
+            path: paths.dashboard.rawMaterials.root,
+            icon: ICONS.folder,
+            allowedRoles: ['manager', 'owner'],
+            children: [
+               { title: 'Stok Bahan Baku', path: paths.dashboard.rawMaterials.root },
+               { title: 'Pembelian (Purchase)', path: paths.dashboard.rawMaterialPurchases.root },
+               { title: 'Pergerakan Stok', path: paths.dashboard.rawMaterialMovements.root },
+            ],
          },
       ],
    },
    /**
-    * Core Settings
+    * Core Settings (For Superadmin & Owner)
     */
    {
       subheader: 'Core Settings',
-      requiredPermissions: ['Read User', 'Read Role', 'Read Permission'],
       items: [
          {
-            title: 'User Access',
+            title: 'User Management',
             path: paths.dashboard.users.root,
-            icon: icon('solar:user-bold-duotone'),
-            requiredPermissions: ['Read User'],
+            icon: ICONS.user,
+            allowedRoles: ['superadmin'],
             children: [
-               {
-                  title: 'Users',
-                  path: paths.dashboard.users.root,
-                  requiredPermissions: ['Read User'],
-               },
-               {
-                  title: 'Access Control',
-                  path: paths.dashboard.users.access,
-                  requiredPermissions: ['Read Role', 'Read Permission', 'Read User'],
-               },
+               { title: 'All User List', path: paths.dashboard.users.root },
+               { title: 'Access Control', path: paths.dashboard.users.access },
             ],
          },
          {
-            title: 'Settings',
+            title: 'Konfigurasi',
             path: paths.dashboard.settings,
-            icon: icon('solar:settings-minimalistic-bold-duotone'),
-            requiredPermissions: ['Read Setting'],
-         },
-         {
-            title: 'Whatsapp Integration',
-            path: paths.dashboard.whatsapp,
-            icon: icon('solar:smartphone-2-bold-duotone'),
-            requiredPermissions: ['Read WhatsappIntegration'],
+            icon: <Iconify icon="solar:settings-bold-duotone" />,
+            allowedRoles: ['superadmin'],
+            children: [
+               { title: 'App Settings', path: paths.dashboard.settings },
+               { title: 'Whatsapp Integration', path: paths.dashboard.whatsapp },
+               { title: 'Hak Akses (Role)', path: paths.dashboard.users.access },
+            ],
          },
       ],
    },

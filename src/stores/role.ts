@@ -94,7 +94,7 @@ const useRoleStore = create<RoleState>()(
          },
       }),
       {
-         name: "setting-store", // key di localStorage
+         name: "role-store", // key di localStorage
          partialize: (state) => ({
             roles: state.roles,
          }), // hanya simpan ini

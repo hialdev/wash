@@ -1,0 +1,50 @@
+src/layouts/al/nav-config-workspace.tsx(1,45): error TS2307: Cannot find module './components/workspaces-popover' or its corresponding type declarations.
+src/lib/al/testimonial.ts(3,52): error TS2307: Cannot find module 'src/types/testimonial' or its corresponding type declarations.
+src/sections/checkout/context/checkout-provider.tsx(117,27): error TS2345: Argument of type 'string[] | undefined' is not assignable to parameter of type 'readonly string[]'.
+  Type 'undefined' is not assignable to type 'readonly string[]'.
+src/sections/order/order-details-customer.tsx(1,15): error TS2305: Module '"src/types/order"' has no exported member 'IOrderCustomer'.
+src/sections/order/order-details-delivery.tsx(1,15): error TS2305: Module '"src/types/order"' has no exported member 'IOrderDelivery'.
+src/sections/order/order-details-history.tsx(1,15): error TS2305: Module '"src/types/order"' has no exported member 'IOrderHistory'.
+src/sections/order/order-details-history.tsx(67,31): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/sections/order/order-details-history.tsx(67,37): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/sections/order/order-details-items.tsx(2,15): error TS2724: '"src/types/order"' has no exported member named 'IOrderProductItem'. Did you mean 'OrderProduct'?
+src/sections/order/order-details-payment.tsx(1,15): error TS2305: Module '"src/types/order"' has no exported member 'IOrderPayment'.
+src/sections/order/order-details-shipping.tsx(1,15): error TS2305: Module '"src/types/order"' has no exported member 'IOrderShippingAddress'.
+src/sections/order/order-table-row.tsx(107,14): error TS2367: This comparison appears to be unintentional because the types '"finish" | "refunded" | "waiting_payment" | "on_progress" | "stock_issue" | "waiting_restock" | "refund_pending" | "waiting_process" | "payment_verification" | "canceled" | undefined' and '"completed"' have no overlap.
+src/sections/order/order-table-row.tsx(108,14): error TS2367: This comparison appears to be unintentional because the types '"finish" | "refunded" | "waiting_payment" | "on_progress" | "stock_issue" | "waiting_restock" | "refund_pending" | "waiting_process" | "payment_verification" | "canceled" | undefined' and '"pending"' have no overlap.
+src/sections/order/order-table-row.tsx(109,14): error TS2367: This comparison appears to be unintentional because the types '"finish" | "refunded" | "waiting_payment" | "on_progress" | "stock_issue" | "waiting_restock" | "refund_pending" | "waiting_process" | "payment_verification" | "canceled" | undefined' and '"cancelled"' have no overlap.
+src/sections/order/order-table-toolbar.tsx(44,23): error TS2322: Type 'IDatePickerControl' is not assignable to type 'Date | null | undefined'.
+  Type 'Dayjs' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 35 more.
+src/sections/order/order-table-toolbar.tsx(52,23): error TS2322: Type 'IDatePickerControl' is not assignable to type 'Date | null | undefined'.
+  Type 'Dayjs' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 35 more.
+src/sections/order/order-table-toolbar.tsx(97,11): error TS2322: Type 'Date | null' is not assignable to type 'PickerValue | undefined'.
+  Type 'Date' is missing the following properties from type 'Dayjs': clone, isValid, year, month, and 26 more.
+src/sections/order/order-table-toolbar.tsx(104,11): error TS2322: Type 'Date | null' is not assignable to type 'PickerValue | undefined'.
+  Type 'Date' is missing the following properties from type 'Dayjs': clone, isValid, year, month, and 26 more.
+src/sections/order/view/order-details-view.tsx(36,15): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<"finish" | "refunded" | "waiting_payment" | "on_progress" | "stock_issue" | "waiting_restock" | "refund_pending" | "waiting_process" | "payment_verification" | "canceled" | undefined>'.
+src/sections/order/view/order-details-view.tsx(43,9): error TS2322: Type 'string | Date | undefined' is not assignable to type 'IDateValue | undefined'.
+  Type 'Date' is not assignable to type 'IDateValue | undefined'.
+src/sections/order/view/order-details-view.tsx(56,29): error TS2339: Property 'items' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(57,29): error TS2339: Property 'taxes' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(58,32): error TS2339: Property 'shipping' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(59,32): error TS2339: Property 'discount' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(60,32): error TS2339: Property 'subtotal' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(64,50): error TS2339: Property 'history' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(80,52): error TS2339: Property 'delivery' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(83,59): error TS2339: Property 'shippingAddress' does not exist on type 'Order'.
+src/sections/order/view/order-details-view.tsx(86,50): error TS2339: Property 'payment' does not exist on type 'Order'.
+src/sections/order/view/order-list-view.tsx(70,60): error TS2345: Argument of type '{ id: string; orderNumber: string; createdAt: string; taxes: number; items: { id: string; sku: string; quantity: number; name: string; coverUrl: string; price: number; }[]; history: { orderTime: string; paymentTime: string; deliveryTime: string; completionTime: string; timeline: { ...; }[]; }; ... 9 more ...; status...' is not assignable to parameter of type 'Order[] | (() => Order[])'.
+  Type '{ id: string; orderNumber: string; createdAt: string; taxes: number; items: { id: string; sku: string; quantity: number; name: string; coverUrl: string; price: number; }[]; history: { orderTime: string; paymentTime: string; deliveryTime: string; completionTime: string; timeline: { ...; }[]; }; ... 9 more ...; status...' is not assignable to type 'Order[]'.
+    Type '{ id: string; orderNumber: string; createdAt: string; taxes: number; items: { id: string; sku: string; quantity: number; name: string; coverUrl: string; price: number; }[]; history: { orderTime: string; paymentTime: string; deliveryTime: string; completionTime: string; timeline: { ...; }[]; }; ... 9 more ...; status...' is not assignable to type 'Order'.
+      Types of property 'status' are incompatible.
+        Type 'string' is not assignable to type '"finish" | "refunded" | "waiting_payment" | "on_progress" | "stock_issue" | "waiting_restock" | "refund_pending" | "waiting_process" | "payment_verification" | "canceled" | undefined'.
+src/sections/order/view/order-list-view.tsx(112,75): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/sections/order/view/order-list-view.tsx(229,19): error TS2345: Argument of type '(string | undefined)[]' is not assignable to parameter of type 'string[]'.
+  Type 'string | undefined' is not assignable to type 'string'.
+    Type 'undefined' is not assignable to type 'string'.
+src/sections/order/view/order-list-view.tsx(253,23): error TS2345: Argument of type '(string | undefined)[]' is not assignable to parameter of type 'string[]'.
+  Type 'string | undefined' is not assignable to type 'string'.
+    Type 'undefined' is not assignable to type 'string'.
+src/views/dashboard/my-orders/my-order-details-view.tsx(267,38): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.

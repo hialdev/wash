@@ -78,16 +78,20 @@ export function DashboardLayout({
    const canDisplayItemByRole = (allowedRoles: NavItemProps['allowedRoles']): boolean => {
       if (!allowedRoles || allowedRoles.length === 0) return false;
 
-      const userRole = user?.role?.name;
+      const roleName = (user?.role?.name || '').toLowerCase().trim().replace(/\s+/g, '');
       const userPermissions = user?.permissions || authData?.permissions || [];
+      
+      const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+      const normalizedRoles = roles.map(r => r.toLowerCase().trim().replace(/\s+/g, ''));
 
-      // Check if user has ANY of the required roles or permissions
-      const hasMatch = (Array.isArray(allowedRoles) && allowedRoles.length > 0 ? allowedRoles : []).some(
-         (item: any) => (userRole && item === userRole) || userPermissions.includes(item)
-      );
+      // Check if role matches
+      const hasRoleMatch = normalizedRoles.includes(roleName);
+      
+      // Check if any of the allowedRoles matches user permissions (as fallback or legacy)
+      const hasPermissionMatch = roles.some(item => userPermissions.includes(item));
 
       // Return TRUE if we should HIDE the item (i.e., user DOES NOT have the role or permission)
-      return !hasMatch;
+      return !(hasRoleMatch || hasPermissionMatch);
    };
 
    const [logoUrl, setLogoUrl] = useState<string>('');

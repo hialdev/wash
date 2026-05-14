@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import IconButton from '@mui/material/IconButton';
@@ -110,18 +111,30 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
             </TableCell>
 
             <TableCell align="right">
-               <IconButton
-                  component={RouterLink}
-                  href={paths.dashboard.orders.detail(row.id || '')}
-                  color="default"
-               >
-                  <Iconify icon="solar:eye-bold" />
-               </IconButton>
-
-               {(row.status === 'on_progress' || row.status === 'finish') && (
-                  <IconButton onClick={() => setOpenProcessingLogModal(true)} color="info">
-                     <Iconify icon="solar:settings-bold" />
-                  </IconButton>
+               {row.status === 'finish' ? (
+                  <Button
+                     component={RouterLink}
+                     href={paths.dashboard.orders.detail(row.id || '')}
+                     size="small"
+                     variant="outlined"
+                     color="inherit"
+                     startIcon={<Iconify icon="solar:eye-bold" />}
+                     sx={{ mr: 1 }}
+                  >
+                     Detail
+                  </Button>
+               ) : (
+                  <Button
+                     component={RouterLink}
+                     href={paths.dashboard.orders.detail(row.id || '')}
+                     size="small"
+                     variant="soft"
+                     color="primary"
+                     startIcon={<Iconify icon="solar:settings-bold" />}
+                     sx={{ mr: 1 }}
+                  >
+                     Proses
+                  </Button>
                )}
 
                <IconButton onClick={popover.onOpen}>

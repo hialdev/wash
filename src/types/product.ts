@@ -62,6 +62,11 @@ export type IProductFilters = {
    priceRange: number[];
 };
 
+export type IProductTableFilters = {
+   stock: string[];
+   publish: string[];
+};
+
 // ----------------------------------------------------------------------
 
 export type IProductReviewNewForm = {
@@ -116,4 +121,6 @@ export type IProductItem = {
       enabled: boolean;
       content: string;
    };
+   ratings: any[];
+   reviews: any[];
 };

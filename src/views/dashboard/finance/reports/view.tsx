@@ -5,6 +5,8 @@ import dayjs from 'dayjs';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
@@ -28,7 +30,18 @@ import useFinanceStore from 'src/stores/finance';
 // ----------------------------------------------------------------------
 
 export default function FinanceReportView() {
-   const { summary, loading, getSummary, exportPdf } = useFinanceStore();
+   const { summary, loading, getSummary, exportPdf, exportExcel, exportCsv } = useFinanceStore();
+
+   const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
+   const openExportMenu = Boolean(exportAnchorEl);
+
+   const handleOpenExportMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+      setExportAnchorEl(event.currentTarget);
+   };
+
+   const handleCloseExportMenu = () => {
+      setExportAnchorEl(null);
+   };
 
    const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
       start: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // First day of current month
@@ -48,9 +61,30 @@ export default function FinanceReportView() {
       fetchData();
    }, [fetchData]);
 
-   const handleExport = async () => {
+   const handleExportPdf = async () => {
+      handleCloseExportMenu();
       if (dateRange.start && dateRange.end) {
          await exportPdf({
+            start_date: dateRange.start.toISOString().split('T')[0],
+            end_date: dateRange.end.toISOString().split('T')[0],
+         });
+      }
+   };
+
+   const handleExportExcel = async () => {
+      handleCloseExportMenu();
+      if (dateRange.start && dateRange.end) {
+         await exportExcel({
+            start_date: dateRange.start.toISOString().split('T')[0],
+            end_date: dateRange.end.toISOString().split('T')[0],
+         });
+      }
+   };
+
+   const handleExportCsv = async () => {
+      handleCloseExportMenu();
+      if (dateRange.start && dateRange.end) {
+         await exportCsv({
             start_date: dateRange.start.toISOString().split('T')[0],
             end_date: dateRange.end.toISOString().split('T')[0],
          });
@@ -93,13 +127,41 @@ export default function FinanceReportView() {
             />
             <Button
                variant="contained"
+               color="primary"
                startIcon={<Iconify icon="solar:export-bold" />}
-               onClick={handleExport}
+               endIcon={<Iconify icon="eva:chevron-down-fill" />}
+               onClick={handleOpenExportMenu}
                disabled={loading}
-               sx={{ width: '100%', whiteSpace:'nowrap', px:2 }}
+               sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: 140, whiteSpace: 'nowrap', px: 2 }}
             >
-               Export PDF
+               Export Data
             </Button>
+            <Menu
+               anchorEl={exportAnchorEl}
+               open={openExportMenu}
+               onClose={handleCloseExportMenu}
+               anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+               }}
+               transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+               }}
+            >
+               <MenuItem onClick={handleExportPdf}>
+                  <Iconify icon="solar:document-bold" sx={{ mr: 1, color: 'error.main' }} />
+                  PDF
+               </MenuItem>
+               <MenuItem onClick={handleExportExcel}>
+                  <Iconify icon="solar:document-bold" sx={{ mr: 1, color: 'success.main' }} />
+                  Excel (.xlsx)
+               </MenuItem>
+               <MenuItem onClick={handleExportCsv}>
+                  <Iconify icon="solar:notes-bold" sx={{ mr: 1, color: 'info.main' }} />
+                  CSV (.csv)
+               </MenuItem>
+            </Menu>
          </Stack>
 
          {/* Summary Cards */}

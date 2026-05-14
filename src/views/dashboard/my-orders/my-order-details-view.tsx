@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import dayjs from 'dayjs';
 
 import Box from '@mui/material/Box';
@@ -19,6 +20,8 @@ import TimelineConnector from '@mui/lab/TimelineConnector';
 import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineDot from '@mui/lab/TimelineDot';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
+import Rating from '@mui/material/Rating';
+import TextField from '@mui/material/TextField';
 import Grid from '@mui/material/Grid';
 
 import { paths } from 'src/routes/al/paths';
@@ -28,6 +31,7 @@ import { useParams } from 'src/routes/hooks';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
 import { fCurrency } from 'src/utils/format-number';
+import { toast } from 'src/components/snackbar';
 import { CONFIG } from 'src/global-config';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -35,12 +39,19 @@ import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 import useOrderStore from 'src/stores/order';
 import useOrderLogStatusStore from 'src/stores/order-log-status';
 import useBankStore from 'src/stores/bank';
+import useOrderProcessLogStore from 'src/stores/order-process-log';
 
 import ServiceItem from '../orders/components/service-item';
 import UsedRawMaterialList from '../orders/components/used-raw-material-list';
 import { UploadPaymentProofModal } from '../payment/[orderId]/components/upload-payment-proof-modal';
+import MyOrderProcessLog from './components/my-order-process-log';
 
 // ----------------------------------------------------------------------
+
+const OrderDetailsPDFDownload = dynamic(
+   () => import('./components/order-details-pdf').then((mod) => mod.OrderDetailsPDFDownload),
+   { ssr: false }
+);
 
 export default function MyOrderDetailsView() {
    const params = useParams();
@@ -49,9 +60,20 @@ export default function MyOrderDetailsView() {
    const { getMyOrder: getOrder, order } = useOrderStore();
    const { logs, getByOrderId } = useOrderLogStatusStore();
    const { banks, fetchBanks } = useBankStore();
+   const { logs: processLogs, getUserLogs } = useOrderProcessLogStore();
 
+   const [mounted, setMounted] = useState(false);
    const [loading, setLoading] = useState(true);
    const [uploadModalOpen, setUploadModalOpen] = useState(false);
+   const [ratingValue, setRatingValue] = useState<number | null>(null);
+   const [reviewValue, setReviewValue] = useState('');
+   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+
+   const { rateOrder } = useOrderStore();
+
+   useEffect(() => {
+      setMounted(true);
+   }, []);
 
    useEffect(() => {
       const init = async () => {
@@ -62,6 +84,7 @@ export default function MyOrderDetailsView() {
                   getOrder({ id: id as string }),
                   getByOrderId({ orderId: id as string }),
                   fetchBanks({ is_active: true }),
+                  getUserLogs(id as string),
                ]);
             } catch (error) {
                console.error('Failed to init order details:', error);
@@ -71,7 +94,31 @@ export default function MyOrderDetailsView() {
          }
       };
       init();
-   }, [id, getOrder, getByOrderId, fetchBanks]);
+   }, [id, getOrder, getByOrderId, fetchBanks, getUserLogs]);
+
+   const handleRate = async () => {
+      if (!ratingValue) {
+         toast.error('Silakan pilih bintang rating');
+         return;
+      }
+      setIsSubmittingRating(true);
+      try {
+         const res = await rateOrder({
+            id: id as string,
+            data: { rating: ratingValue, review: reviewValue },
+         });
+         if (res.success) {
+            toast.success('Terima kasih atas rating Anda!');
+            getOrder({ id: id as string }); // Refresh data
+         } else {
+            toast.error(res.message || 'Gagal memberi rating');
+         }
+      } catch (error) {
+         toast.error('Terjadi kesalahan saat memberi rating');
+      } finally {
+         setIsSubmittingRating(false);
+      }
+   };
 
    if (loading) {
       return <LoadingScreen />;
@@ -131,6 +178,15 @@ export default function MyOrderDetailsView() {
                { name: 'My Orders', href: paths.dashboard.customer_orders.my_orders },
                { name: order.order_number },
             ]}
+            action={
+               order && (
+                  <OrderDetailsPDFDownload
+                     order={order}
+                     logs={logs}
+                     processLogs={processLogs}
+                  />
+               )
+            }
             sx={{ mb: { xs: 3, md: 5 } }}
          />
 
@@ -174,6 +230,34 @@ export default function MyOrderDetailsView() {
                                  </Typography>
                               </Box>
                            </Box>
+                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                 Total Berat
+                              </Typography>
+                              <Typography variant="subtitle2">{order.weight_kg ? `${order.weight_kg} kg` : '-'}</Typography>
+                           </Box>
+                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                 Total Pieces
+                              </Typography>
+                              <Typography variant="subtitle2">{order.total_pcs ? `${order.total_pcs} Pcs` : '-'}</Typography>
+                           </Box>
+                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                 Deskripsi / Catatan
+                              </Typography>
+                              <Typography
+                                 variant="body2"
+                                 sx={{
+                                    textAlign: 'right',
+                                    maxWidth: '60%',
+                                    color: order.notes ? 'text.primary' : 'text.disabled',
+                                    fontStyle: order.notes ? 'normal' : 'italic'
+                                 }}
+                              >
+                                 {order.notes || 'Tidak ada catatan'}
+                              </Typography>
+                           </Box>
                            <Divider sx={{ borderStyle: 'dashed' }} />
                            {(order as any).discount_amount > 0 && (
                               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -201,6 +285,7 @@ export default function MyOrderDetailsView() {
                         </Stack>
                      </CardContent>
                   </Card>
+
                   {/* Products */}
                   {order.order_products && order.order_products.length > 0 && (
                      <Card>
@@ -256,6 +341,55 @@ export default function MyOrderDetailsView() {
                                  />
                               ))}
                            </Stack>
+                        </CardContent>
+                     </Card>
+                  )}
+
+                  {/* Rating Section - when finished and not yet rated */}
+                  {order.status === 'finish' && (
+                     <Card>
+                        <CardHeader title="Penilaian & Review" />
+                        <CardContent>
+                           {order.rating ? (
+                              <Stack spacing={1}>
+                                 <Rating value={order.rating} readOnly />
+                                 {order.review && (
+                                    <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+                                       "{order.review}"
+                                    </Typography>
+                                 )}
+                              </Stack>
+                           ) : (
+                              <Stack spacing={2.5}>
+                                 <Box>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                       Berikan penilaian Anda
+                                    </Typography>
+                                    <Rating
+                                       value={ratingValue}
+                                       onChange={(event, newValue) => setRatingValue(newValue)}
+                                       size="large"
+                                    />
+                                 </Box>
+                                 <TextField
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    label="Tuliskan pengalaman Anda..."
+                                    value={reviewValue}
+                                    onChange={(e) => setReviewValue(e.target.value)}
+                                 />
+                                 <Button
+                                    variant="contained"
+                                    onClick={handleRate}
+                                    loading={isSubmittingRating}
+                                    disabled={!ratingValue}
+                                    startIcon={<Iconify icon="solar:star-bold" />}
+                                 >
+                                    Kirim Rating
+                                 </Button>
+                              </Stack>
+                           )}
                         </CardContent>
                      </Card>
                   )}
@@ -397,79 +531,93 @@ export default function MyOrderDetailsView() {
                         </CardContent>
                      </Card>
                   )}
-
+                  {/* Rincian Proses Laundry */}
+                  <MyOrderProcessLog orderId={order.id || ''} />
+                  
                   {/* Status History */}
                   <Card>
                      <CardHeader title="Status History" />
                      <CardContent>
-                        <Timeline position="right" sx={{ pl: 0 }}>
-                           {logs.map((log, index) => {
-                              const images = parseImages(log.images);
-                              const isLast = index === logs.length - 1;
+                        {logs.length === 0 ? (
+                           <Box sx={{ py: 6, textAlign: 'center' }}>
+                              <Iconify icon="solar:history-bold-duotone" width={48} sx={{ color: 'text.disabled', mb: 1.5, opacity: 0.4 }} />
+                              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                                 Belum ada riwayat status
+                              </Typography>
+                              <Typography variant="caption" color="text.disabled">
+                                 Log aktivitas pesanan akan muncul di sini.
+                              </Typography>
+                           </Box>
+                        ) : (
+                           <Timeline position="right" sx={{ pl: 0 }}>
+                              {logs.map((log, index) => {
+                                 const images = parseImages(log.images);
+                                 const isLast = index === logs.length - 1;
 
-                              return (
-                                 <TimelineItem
-                                    key={log.id}
-                                    sx={{ '&:before': { display: 'none' } }}
-                                 >
-                                    <TimelineSeparator>
-                                       <TimelineDot color={statusColor[log.status || 'default']} />
-                                       {!isLast && <TimelineConnector />}
-                                    </TimelineSeparator>
-                                    <TimelineContent>
-                                       <Typography variant="subtitle2">
-                                          {statusLabel[log.status || 'Unknown']}
-                                       </Typography>
-                                       <Typography
-                                          variant="caption"
-                                          color="text.secondary"
-                                          display="block"
-                                          sx={{ mb: 1 }}
-                                       >
-                                          {dayjs(log.created_at).format('DD MMM YYYY HH:mm')}
-                                       </Typography>
-                                       <Typography
-                                          variant="body2"
-                                          sx={{ color: 'text.secondary', mb: 1 }}
-                                       >
-                                          {log.reason}
-                                       </Typography>
-                                       {images.length > 0 && (
-                                          <Box
-                                             sx={{
-                                                display: 'flex',
-                                                gap: 1,
-                                                flexWrap: 'wrap',
-                                                mt: 1,
-                                             }}
+                                 return (
+                                    <TimelineItem
+                                       key={log.id}
+                                       sx={{ '&:before': { display: 'none' } }}
+                                    >
+                                       <TimelineSeparator>
+                                          <TimelineDot color={statusColor[log.status || 'default']} />
+                                          {!isLast && <TimelineConnector />}
+                                       </TimelineSeparator>
+                                       <TimelineContent>
+                                          <Typography variant="subtitle2">
+                                             {statusLabel[log.status || 'Unknown']}
+                                          </Typography>
+                                          <Typography
+                                             variant="caption"
+                                             color="text.secondary"
+                                             display="block"
+                                             sx={{ mb: 1 }}
                                           >
-                                             {images.map((img, idx) => (
-                                                <Box
-                                                   key={idx}
-                                                   component="img"
-                                                   src={`${CONFIG.apiHostUrl}/${img}`}
-                                                   sx={{
-                                                      width: 64,
-                                                      height: 64,
-                                                      borderRadius: 1,
-                                                      cursor: 'pointer',
-                                                      objectFit: 'cover',
-                                                   }}
-                                                   onClick={() =>
-                                                      window.open(
-                                                         `${CONFIG.apiHostUrl}/${img}`,
-                                                         '_blank'
-                                                      )
-                                                   }
-                                                />
-                                             ))}
-                                          </Box>
-                                       )}
-                                    </TimelineContent>
-                                 </TimelineItem>
-                              );
-                           })}
-                        </Timeline>
+                                             {dayjs(log.created_at).format('DD MMM YYYY HH:mm')}
+                                          </Typography>
+                                          <Typography
+                                             variant="body2"
+                                             sx={{ color: 'text.secondary', mb: 1 }}
+                                          >
+                                             {log.reason}
+                                          </Typography>
+                                          {images.length > 0 && (
+                                             <Box
+                                                sx={{
+                                                   display: 'flex',
+                                                   gap: 1,
+                                                   flexWrap: 'wrap',
+                                                   mt: 1,
+                                                }}
+                                             >
+                                                {images.map((img, idx) => (
+                                                   <Box
+                                                      key={idx}
+                                                      component="img"
+                                                      src={`${CONFIG.apiHostUrl}/${img}`}
+                                                      sx={{
+                                                         width: 64,
+                                                         height: 64,
+                                                         borderRadius: 1,
+                                                         cursor: 'pointer',
+                                                         objectFit: 'cover',
+                                                      }}
+                                                      onClick={() =>
+                                                         window.open(
+                                                            `${CONFIG.apiHostUrl}/${img}`,
+                                                            '_blank'
+                                                         )
+                                                      }
+                                                   />
+                                                ))}
+                                             </Box>
+                                          )}
+                                       </TimelineContent>
+                                    </TimelineItem>
+                                 );
+                              })}
+                           </Timeline>
+                        )}
                      </CardContent>
                   </Card>
                </Stack>

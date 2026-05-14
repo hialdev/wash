@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
-import { paths } from 'src/routes/paths';
+import { paths } from 'src/routes/al/paths';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import useServiceStore from 'src/stores/service';

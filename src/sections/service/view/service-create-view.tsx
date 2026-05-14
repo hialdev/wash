@@ -5,7 +5,7 @@ import { paths } from 'src/routes/paths';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
-import { ServiceCreateEditForm } from '../service-create-edit-form';
+import { ServiceStepperForm } from '../service-stepper-form';
 import { Grid } from '@mui/material';
 
 // ----------------------------------------------------------------------
@@ -14,16 +14,16 @@ export function ServiceCreateView() {
    return (
       <DashboardContent>
          <CustomBreadcrumbs
-            heading="Create a new service"
+            heading="Buat Layanan Baru"
             links={[
                { name: 'Dashboard', href: paths.dashboard.root },
-               { name: 'Service', href: paths.dashboard.service.list },
-               { name: 'Create' },
+               { name: 'Layanan', href: paths.dashboard.service.list },
+               { name: 'Buat Baru' },
             ]}
             sx={{ mb: { xs: 3, md: 5 } }}
          />
 
-         <ServiceCreateEditForm />
+         <ServiceStepperForm />
       </DashboardContent>
    );
 }

@@ -13,15 +13,34 @@ export interface IService {
    id: string;
    service_category_id?: string;
    service_category?: IServiceCategory;
+   parent_id?: string | null;    // null = top-level service, set = variant of parent
+   parent?: IService;            // populated when is variant
+   variants?: IService[];        // sub-services (variants)
    name: string;
    description?: string;
    price: number;
    unit: string; // 'kg', 'pcs', 'set'
    estimated_duration?: number; // in minutes
    is_active: boolean;
+   is_parent?: boolean;
    images?: string; // JSON string from backend
+   service_cogs?: IServiceCog[];
    created_at: string;
    updated_at: string;
+}
+
+export interface IServiceCog {
+   id: string;
+   service_id: string;
+   raw_material_id: string;
+   raw_material?: {
+      id: string;
+      title: string;
+      unit: string;
+      current_stock: number;
+   };
+   qty: number;
+   unit: string;
 }
 
 export interface IOrderService {
@@ -29,6 +48,8 @@ export interface IOrderService {
    order_id: string;
    service_id: string;
    service?: IService;
+   service_variant_id?: string | null;
+   service_variant?: IService;
    qty: number;
    price_at_order: number;
    subtotal: number;
@@ -40,6 +61,7 @@ export interface IOrderService {
    service_process?: IOrderServiceProcess[];
    service_detail?: IOrderServiceDetail;
 }
+
 
 export interface IOrderServiceProcess {
    id: string;

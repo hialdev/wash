@@ -147,6 +147,7 @@ export const paths = {
       // E-Commerce - Sales
       orders: {
          root: `${ROOTS.DASHBOARD}/orders`,
+         boarding: `${ROOTS.DASHBOARD}/orders/boarding`,
          detail: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}`,
          process: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}/process`,
          serviceTracking: (id: string, serviceId: string) =>
@@ -225,6 +226,9 @@ export const paths = {
          new: `${ROOTS.DASHBOARD}/users/new`,
          list: `${ROOTS.DASHBOARD}/users/list`,
          access: `${ROOTS.DASHBOARD}/users/access`,
+      },
+      customers: {
+         root: `${ROOTS.DASHBOARD}/customers`,
       },
       whatsapp: `${ROOTS.DASHBOARD}/whatsapp`,
       crud: {

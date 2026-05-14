@@ -77,9 +77,19 @@ type Props = {
 
 export function UserCUForm({ currentUser, open, onClose, onSuccess }: Props) {
 
-   const { authData } = useAuthStore();
+   const { authData, user } = useAuthStore();
    const { update, add } = useUserStore();
    const { roles } = useRoleStore();
+
+   const myRole = user?.role?.name?.toLowerCase() || '';
+
+   let selectableRoles = roles || [];
+   if (myRole === 'manager' || myRole === 'owner') {
+      selectableRoles = selectableRoles.filter((r) => {
+         const normalized = r.name.toLowerCase();
+         return normalized === 'kasir' || normalized === 'manager';
+      });
+   }
 
    const defaultValues: UserCUType = {
       image: currentUser?.image
@@ -87,7 +97,12 @@ export function UserCUForm({ currentUser, open, onClose, onSuccess }: Props) {
          : undefined,
       name: currentUser?.name || '',
       username: currentUser?.username || '',
-      role: currentUser?.role ?? null,
+      role: currentUser?.role ?? (() => {
+         if (!currentUser && myRole === 'manager') {
+            return roles?.find((r) => r.name.toLowerCase() === 'kasir') ?? null;
+         }
+         return null;
+      })(),
       email: currentUser?.email || '',
       phoneNumber: currentUser?.phone ? String(currentUser.phone) : '',
       phoneNumber_country_code: parsePhoneNumber(String(currentUser?.phone))?.country || '',
@@ -194,33 +209,36 @@ export function UserCUForm({ currentUser, open, onClose, onSuccess }: Props) {
                   <Field.Text name="username" label="Username" />
                   <Field.Text name="email" label="Email address" />
                   <Field.Phone name="phoneNumber" label="Whatsapp number" defaultCountry="ID" />
-                  <Field.Autocomplete
-                     name="role" // pastikan ini sesuai field di Formik/Yup
-                     label="Select Role"
-                     placeholder="Select Role"
-                     disableCloseOnSelect
-                     options={roles}
-                     getOptionLabel={(option) => option.name}
-                     getOptionKey={(option) => option.id}
-                     isOptionEqualToValue={(option, value) => option.id === value.id}
-                     renderOption={(props, option) => (
-                        <li {...props} key={option.id}>
-                           <Box>
-                              <Typography variant="body2" fontWeight="bold">
-                                 {option.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                 {option.description}
-                              </Typography>
-                           </Box>
-                        </li>
-                     )}
-                     slotProps={{
-                        chip: {
-                           color: 'info',
-                        },
-                     }}
-                  />
+                  
+                  {myRole !== 'manager' && (
+                     <Field.Autocomplete
+                        name="role" // pastikan ini sesuai field di Formik/Yup
+                        label="Select Role"
+                        placeholder="Select Role"
+                        disableCloseOnSelect
+                        options={selectableRoles}
+                        getOptionLabel={(option) => option.name}
+                        getOptionKey={(option) => option.id}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        renderOption={(props, option) => (
+                           <li {...props} key={option.id}>
+                              <Box>
+                                 <Typography variant="body2" fontWeight="bold">
+                                    {option.name}
+                                 </Typography>
+                                 <Typography variant="caption" color="text.secondary">
+                                    {option.description}
+                                 </Typography>
+                              </Box>
+                           </li>
+                        )}
+                        slotProps={{
+                           chip: {
+                              color: 'info',
+                           },
+                        }}
+                     />
+                  )}
 
                </Box>
             </DialogContent>

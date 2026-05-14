@@ -39,15 +39,17 @@ import { ServiceTableRow } from '../service-table-row';
 import { ServiceTableToolbar } from '../service-table-toolbar';
 import { ServiceTableFiltersResult } from '../service-table-filters-result';
 import { ServiceCogsDialog } from '../service-cogs-dialog';
+import { ServiceVariantsDialog } from '../service-variants-dialog';
 
 // ----------------------------------------------------------------------
 
 const TABLE_HEAD: TableHeadCellProps[] = [
-   { id: 'name', label: 'Name' },
-   { id: 'created_at', label: 'Created At', width: 160 },
-   { id: 'price', label: 'Price', width: 140 },
+   { id: 'expand', width: 40 }, // Expand Column
+   { id: 'name', label: 'Nama Layanan' },
+   { id: 'created_at', label: 'Tanggal Dibuat', width: 160 },
+   { id: 'price', label: 'Harga', width: 140 },
    { id: 'is_active', label: 'Status', width: 110 },
-   { id: '', width: 88 },
+   { id: 'actions', width: 88 },
 ];
 
 const STATUS_OPTIONS = [
@@ -86,9 +88,17 @@ export function ServiceListView() {
       name: string;
    } | null>(null);
 
+   const variantsDialog = useBoolean();
+   const [selectedServiceForVariants, setSelectedServiceForVariants] = useState<IService | null>(null);
+
    const handleManageCogs = useCallback((id: string, name: string) => {
       setSelectedServiceForCogs({ id, name });
       cogsDialog.onTrue();
+   }, []);
+
+   const handleManageVariants = useCallback((service: IService) => {
+      setSelectedServiceForVariants(service);
+      variantsDialog.onTrue();
    }, []);
 
    const fetchData = useCallback(async () => {
@@ -100,6 +110,8 @@ export function ServiceListView() {
          sort: table.orderBy,
          order: table.order,
          search: currentFilters.name,
+         parent_id: 'none', // Only show top-level services in list
+         with_variants: 'true',
       };
 
       if (currentFilters.status !== 'all') {
@@ -288,8 +300,9 @@ export function ServiceListView() {
                                        row={row}
                                        selected={table.selected.includes(row.id)}
                                        onSelectRow={() => table.onSelectRow(row.id)}
-                                       onDeleteRow={() => handleDeleteRow(row.id)}
+                                       onDeleteRow={handleDeleteRow}
                                        onManageCogs={handleManageCogs}
+                                       onManageVariants={handleManageVariants}
                                     />
                                  ))}
                               </>
@@ -334,6 +347,18 @@ export function ServiceListView() {
                }}
                serviceId={selectedServiceForCogs.id}
                serviceName={selectedServiceForCogs.name}
+            />
+         )}
+
+         {selectedServiceForVariants && (
+            <ServiceVariantsDialog
+               open={variantsDialog.value}
+               onClose={() => {
+                  variantsDialog.onFalse();
+                  setSelectedServiceForVariants(null);
+                  fetchData(); // Refresh list just in case
+               }}
+               parentService={selectedServiceForVariants}
             />
          )}
       </>

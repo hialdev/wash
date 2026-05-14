@@ -234,41 +234,105 @@ export function PaymentView() {
                      </Typography>
                      {/* Bank Account Details */}
                      {banks.length > 0 ? (
-                        banks.map((bank) => (
-                           <Card
-                              key={bank.id}
-                              variant="outlined"
-                              sx={{ p: 2, mb: 2, bgcolor: 'background.neutral' }}
-                           >
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                                 {bank.logo && (
-                                    <Box
-                                       component="img"
-                                       src={`${process.env.NEXT_PUBLIC_API_HOST}/${bank.logo}`}
-                                       alt={bank.bank_name}
-                                       sx={{ width: 40, height: 40, objectFit: 'contain' }}
-                                    />
-                                 )}
-                                 <Typography variant="subtitle2">{bank.bank_name}</Typography>
-                              </Box>
-                              <Typography variant="h6" fontWeight={700} gutterBottom>
-                                 {bank.account_number}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                 a.n. {bank.account_owner}
-                              </Typography>
-                              {bank.description && (
-                                 <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    display="block"
-                                    mt={0.5}
-                                 >
-                                    {bank.description}
-                                 </Typography>
-                              )}
-                           </Card>
-                        ))
+                         banks.map((bank) => {
+                            if (bank.is_qris || bank.qris_image) {
+                               return (
+                                  <Card
+                                     key={bank.id}
+                                     variant="outlined"
+                                     sx={{ p: 3, mb: 2, bgcolor: 'background.neutral', textAlign: 'center' }}
+                                  >
+                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 2 }}>
+                                        {bank.logo && (
+                                           <Box
+                                              component="img"
+                                              src={`${process.env.NEXT_PUBLIC_API_HOST}/${bank.logo}`}
+                                              alt={bank.bank_name}
+                                              sx={{ height: 30, objectFit: 'contain' }}
+                                           />
+                                        )}
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{bank.bank_name}</Typography>
+                                     </Box>
+                                     
+                                     {bank.qris_image && (
+                                        <Box
+                                           sx={{
+                                              p: 1.5,
+                                              bgcolor: '#fff',
+                                              borderRadius: 1.5,
+                                              display: 'inline-block',
+                                              border: 1,
+                                              borderColor: 'divider',
+                                              mb: 2,
+                                              boxShadow: (theme) => theme.shadows[1]
+                                           }}
+                                        >
+                                           <Box
+                                              component="img"
+                                              src={`${process.env.NEXT_PUBLIC_API_HOST}/${bank.qris_image}`}
+                                              alt="QRIS Code"
+                                              sx={{ width: 240, height: 240, display: 'block', objectFit: 'contain' }}
+                                           />
+                                        </Box>
+                                     )}
+                                     
+                                     <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                                        Scan QRIS untuk Bayar
+                                     </Typography>
+                                     <Typography variant="body2" color="text.secondary">
+                                        a.n. {bank.account_owner}
+                                     </Typography>
+                                     {bank.description && (
+                                        <Typography
+                                           variant="caption"
+                                           color="text.secondary"
+                                           display="block"
+                                           mt={1}
+                                           sx={{ fontStyle: 'italic' }}
+                                        >
+                                           {bank.description}
+                                        </Typography>
+                                     )}
+                                  </Card>
+                               );
+                            }
+
+                            return (
+                               <Card
+                                  key={bank.id}
+                                  variant="outlined"
+                                  sx={{ p: 2, mb: 2, bgcolor: 'background.neutral' }}
+                               >
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                                     {bank.logo && (
+                                        <Box
+                                           component="img"
+                                           src={`${process.env.NEXT_PUBLIC_API_HOST}/${bank.logo}`}
+                                           alt={bank.bank_name}
+                                           sx={{ width: 40, height: 40, objectFit: 'contain' }}
+                                        />
+                                     )}
+                                     <Typography variant="subtitle2">{bank.bank_name}</Typography>
+                                  </Box>
+                                  <Typography variant="h6" fontWeight={700} gutterBottom>
+                                     {bank.account_number}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                     a.n. {bank.account_owner}
+                                  </Typography>
+                                  {bank.description && (
+                                     <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                        mt={0.5}
+                                     >
+                                        {bank.description}
+                                     </Typography>
+                                  )}
+                               </Card>
+                            );
+                         })
                      ) : (
                         <Card
                            variant="outlined"

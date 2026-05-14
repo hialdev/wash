@@ -93,9 +93,24 @@ function Group({
       return null;
    }
 
+   // Filter items that user has permission to see
+   const visibleItems = items.filter((item) => {
+      if (item.allowedRoles && checkPermissions && checkPermissions(item.allowedRoles)) {
+         return false;
+      }
+      if (item.requiredPermissions && checkPermissions) {
+         return item.requiredPermissions.some((perm) => !checkPermissions([perm]));
+      }
+      return true;
+   });
+
+   if (visibleItems.length === 0) {
+      return null;
+   }
+
    const renderContent = () => (
       <NavUl sx={{ gap: 'var(--nav-item-gap)' }}>
-         {items.map((list) => (
+         {visibleItems.map((list) => (
             <NavList
                key={list.title}
                data={list}

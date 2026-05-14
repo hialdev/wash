@@ -3,12 +3,14 @@ import { protectedApi } from '../lib/al/axios';
 
 export interface IBank {
    id: string;
-   bank_name: string;
-   account_number: string;
-   account_owner: string;
+   bank_name?: string;
+   account_number?: string;
+   account_owner?: string;
    description?: string;
    logo?: string;
    is_active: boolean;
+   is_qris?: boolean;
+   qris_image?: string;
    created_at: string;
    updated_at: string;
 }

@@ -8,9 +8,11 @@ import { getServerSession } from 'src/lib/al/auth';
 export default async function AuthGuard({
    children,
    currentPath = paths.dashboard.root,
+   requiredPermissions,
 }: {
    children: React.ReactNode;
    currentPath?: string;
+   requiredPermissions?: string[];
 }) {
    const timestamp = new Date().toISOString();
    console.log(`\n[${timestamp}] [AUTH-GUARD] ========== AuthGuard START ==========`);

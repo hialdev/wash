@@ -63,7 +63,7 @@ export function UserListView() {
    const addDialog = useBoolean();
    const { all, delete: destroy } = useUserStore();
    const { roles, all: getRoles } = useRoleStore();
-   const { authData } = useAuthStore();
+   const { authData, user } = useAuthStore();
 
    const [tableData, setTableData] = useState<UserData[]>([]);
    const [rolesData, setRolesData] = useState<string[]>([]);
@@ -116,10 +116,19 @@ export function UserListView() {
 
    useEffect(() => {
       if (roles && roles.length > 0) {
-         const arrayStringRole = roles.map((r) => r.name);
+         let arrayStringRole = roles.map((r) => r.name);
+
+         const myRole = user?.role?.name?.toLowerCase() || '';
+         if (myRole === 'manager' || myRole === 'owner') {
+            arrayStringRole = arrayStringRole.filter((name) => {
+               const normalized = name.toLowerCase();
+               return normalized === 'kasir' || normalized === 'manager';
+            });
+         }
+
          setRolesData(arrayStringRole);
       }
-   }, [roles]);
+   }, [roles, user?.role?.name]);
 
    const [debouncedSearch] = useDebounce(currentFilters.name, 500);
 

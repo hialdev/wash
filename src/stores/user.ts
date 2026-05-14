@@ -28,6 +28,7 @@ interface UserState {
    assign: ({id, role_id} : {id: string, role_id: string}) => Promise<any>;
    delete: ({id} : {id: string}) => Promise<any>;
    getDeliveryAddresses: ({id} : {id: string}) => Promise<any>;
+   addDeliveryAddress: ({userId, data} : {userId: string, data: {address: string, phone_number: string, notes?: string, is_primary?: boolean}}) => Promise<any>;
 }
 
 const useUserStore = create<UserState>()(
@@ -46,6 +47,10 @@ const useUserStore = create<UserState>()(
          },
          getDeliveryAddresses: async ({id}) => {
             const response = await protectedApi.get(`/users/${id}/delivery-addresses`);
+            return response.data;
+         },
+         addDeliveryAddress: async ({userId, data}) => {
+            const response = await protectedApi.post(`/users/${userId}/delivery-addresses`, data);
             return response.data;
          },
          add: async (data) => {

@@ -33,9 +33,7 @@ export type ServiceCreateSchemaType = z.infer<typeof ServiceCreateSchema>;
 export const ServiceCreateSchema = z.object({
    name: z.string().min(1, { error: 'Name is required!' }),
    description: z.string(),
-   images: schemaUtils.files({ error: 'Images is required!' }).min(1, {
-      error: 'Must have at least 1 image!',
-   }),
+   images: schemaUtils.files({ minFiles: 0 }),
    price: z.number().min(0, { error: 'Price is required!' }),
    unit: z.string().min(1, { error: 'Unit is required!' }),
    estimated_duration: z.number().min(0).optional(),
@@ -209,38 +207,42 @@ export function ServiceCreateEditForm({ currentService }: Props) {
                <CardHeader title="Pricing & Properties" sx={{ mb: 3 }} />
                <Divider />
                <Stack spacing={3} sx={{ p: 3 }}>
-                  <Field.Text
-                     name="price"
-                     label="Price"
-                     placeholder="0.00"
-                     type="number"
-                     slotProps={{
-                        inputLabel: { shrink: true },
-                        input: {
-                           startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
-                        },
-                     }}
-                  />
+                  {!currentService?.is_parent && (
+                     <>
+                        <Field.Text
+                           name="price"
+                           label="Price"
+                           placeholder="0.00"
+                           type="number"
+                           slotProps={{
+                              inputLabel: { shrink: true },
+                              input: {
+                                 startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
+                              },
+                           }}
+                        />
 
-                  <Field.Select
-                     name="unit"
-                     label="Unit"
-                     slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-                  >
-                     {UNIT_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                           {option.label}
-                        </option>
-                     ))}
-                  </Field.Select>
+                        <Field.Select
+                           name="unit"
+                           label="Unit"
+                           slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+                        >
+                           {UNIT_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                 {option.label}
+                              </option>
+                           ))}
+                        </Field.Select>
 
-                  <Field.Text
-                     name="estimated_duration"
-                     label="Estimated Duration (Minutes)"
-                     placeholder="0"
-                     type="number"
-                     slotProps={{ inputLabel: { shrink: true } }}
-                  />
+                        <Field.Text
+                           name="estimated_duration"
+                           label="Estimated Duration (Minutes)"
+                           placeholder="0"
+                           type="number"
+                           slotProps={{ inputLabel: { shrink: true } }}
+                        />
+                     </>
+                  )}
 
                   <FormControlLabel
                      label="Active"

@@ -14,13 +14,16 @@ import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Fab from '@mui/material/Fab';
 import Badge from '@mui/material/Badge';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import InputAdornment from '@mui/material/InputAdornment';
+import LinearProgress from '@mui/material/LinearProgress';
 
 import { paths } from 'src/routes/al/paths';
 
+import useAuthStore from 'src/stores/auth';
 import useCartStore from 'src/stores/cart';
 import useProductStore from 'src/stores/product';
 import useServiceStore from 'src/stores/service';
@@ -47,6 +50,9 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
    const addToCartModal = useBoolean();
    const addServiceToCartModal = useBoolean();
 
+   const { user } = useAuthStore();
+   const isCustomer = user?.role?.name?.toLowerCase() === 'customer';
+
    const { products, getCatalog: getProducts } = useProductStore();
    const { productTypes, all: getAllProductTypes } = useProductTypeStore();
    const {
@@ -58,12 +64,14 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
    const { getItemCount } = useCartStore();
 
    const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
+   const effectiveTab = isCustomer ? 'services' : activeTab;
    const [loading, setLoading] = useState<boolean>(true);
    const [publicVouchers, setPublicVouchers] = useState<IVoucher[]>([]);
 
    // Selection states
    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
    const [selectedService, setSelectedService] = useState<IService | null>(null);
+   const [preselectedVariant, setPreselectedVariant] = useState<IService | null>(null);
 
    // Data states for services (local state since store usually holds admin data)
    const [services, setServices] = useState<IService[]>([]);
@@ -100,7 +108,7 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
    const fetchServices = useCallback(async () => {
       setLoading(true);
       try {
-         const params: any = { limit: 100 };
+         const params: any = { limit: 100, parent_id: 'none' };
 
          if (debouncedSearch) params.search = debouncedSearch;
          if (selectedServiceCategories.length > 0) {
@@ -126,7 +134,20 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
          try {
             const res = await fetchVouchers({ is_public: true, is_active: true });
             if (res?.data) {
-               setPublicVouchers(res.data);
+               const now = new Date();
+               const activeVouchers = res.data.filter((v: IVoucher) => {
+                  // Expired Check
+                  if (v.valid_from && new Date(v.valid_from) > now) return false;
+                  if (v.valid_until && new Date(v.valid_until) < now) return false;
+                  
+                  // Quota Check
+                  if (v.quota !== undefined && v.quota !== null && v.quota > 0) {
+                     if ((v.used_count || 0) >= v.quota) return false;
+                  }
+                  
+                  return true;
+               });
+               setPublicVouchers(activeVouchers);
             }
          } catch (err) {
             console.error(err);
@@ -138,12 +159,12 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
 
    // Fetch data when filter/tab changes
    useEffect(() => {
-      if (activeTab === 'products') {
+      if (effectiveTab === 'products') {
          fetchProducts();
       } else {
          fetchServices();
       }
-   }, [activeTab, fetchProducts, fetchServices]);
+   }, [effectiveTab, fetchProducts, fetchServices]);
 
    // Handlers
    const handleOpenAddToCart = (product: Product) => {
@@ -156,13 +177,15 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
       addToCartModal.onFalse();
    };
 
-   const handleOpenAddService = (service: IService) => {
+   const handleOpenAddService = (service: IService, variant?: IService) => {
       setSelectedService(service);
+      setPreselectedVariant(variant || null);
       addServiceToCartModal.onTrue();
    };
 
    const handleCloseAddService = () => {
       setSelectedService(null);
+      setPreselectedVariant(null);
       addServiceToCartModal.onFalse();
    };
 
@@ -219,20 +242,48 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
                                  Min. spend: Rp {v.min_purchase}
                               </Typography>
                            ) : null}
-                        </Box>
+                        
+
+                            {v.quota && v.quota > 0 && (
+                               <Box sx={{ mt: 1.5 }}>
+                                  <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                                     <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                                        Quota: {v.used_count || 0}/{v.quota}
+                                     </Typography>
+                                     <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 600, color: 'primary.main' }}>
+                                        {Math.round(((v.used_count || 0) / v.quota) * 100)}%
+                                     </Typography>
+                                  </Stack>
+                                  <LinearProgress
+                                     variant="determinate"
+                                     value={Math.min(100, ((v.used_count || 0) / v.quota) * 100)}
+                                     sx={{
+                                        height: 4,
+                                        borderRadius: 2,
+                                        bgcolor: 'grey.200',
+                                        '& .MuiLinearProgress-bar': {
+                                           borderRadius: 2,
+                                        }
+                                     }}
+                                  />
+                               </Box>
+                            )}
+                         </Box>
                      ))}
                   </Box>
                </Card>
             )}
 
             <Box sx={{ mb: 3 }}>
-               <Tabs value={activeTab} onChange={(_, val) => setActiveTab(val)} sx={{ mb: 2 }}>
-                  <Tab
-                     label="Products"
-                     value="products"
-                     icon={<Iconify icon="solar:box-bold-duotone" />}
-                     iconPosition="start"
-                  />
+               <Tabs value={effectiveTab} onChange={(_, val) => setActiveTab(val)} sx={{ mb: 2 }}>
+                  {!isCustomer && (
+                     <Tab
+                        label="Products"
+                        value="products"
+                        icon={<Iconify icon="solar:box-bold-duotone" />}
+                        iconPosition="start"
+                     />
+                  )}
                   <Tab
                      label="Services"
                      value="services"
@@ -249,7 +300,7 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
                         <TextField
                            fullWidth
                            placeholder={
-                              activeTab === 'products' ? 'Search products...' : 'Search services...'
+                              effectiveTab === 'products' ? 'Search products...' : 'Search services...'
                            }
                            value={searchQuery}
                            onChange={(e) => setSearchQuery(e.target.value)}
@@ -265,7 +316,7 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
 
                      {/* Type/Category Filter */}
                      <Grid size={{ xs: 12, md: 6 }}>
-                        {activeTab === 'products' ? (
+                        {effectiveTab === 'products' ? (
                            <Autocomplete
                               multiple
                               options={productTypes}
@@ -325,7 +376,7 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
                <LoadingScreen />
             ) : (
                <>
-                  {activeTab === 'products' ? (
+                  {effectiveTab === 'products' ? (
                      // PRODUCTS GRID
                      products.length === 0 ? (
                         <Card sx={{ p: 3 }}>
@@ -400,6 +451,7 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
                open={addServiceToCartModal.value}
                onClose={handleCloseAddService}
                service={selectedService}
+               initialVariant={preselectedVariant || undefined}
             />
          )}
 

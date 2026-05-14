@@ -265,10 +265,10 @@ export function OrderListView() {
                       <OrderTableRow
                         key={row.id}
                         row={row}
-                        selected={table.selected.includes(row.id)}
-                        onSelectRow={() => table.onSelectRow(row.id)}
-                        onDeleteRow={() => handleDeleteRow(row.id)}
-                        detailsHref={paths.dashboard.order.details(row.id)}
+                        selected={table.selected.includes(row.id || '')}
+                        onSelectRow={() => table.onSelectRow(row.id || '')}
+                        onDeleteRow={() => handleDeleteRow(row.id || '')}
+                        detailsHref={paths.dashboard.order.details(row.id || '')}
                       />
                     ))}
 
@@ -323,8 +323,8 @@ function applyFilter({ inputData, comparator, filters, dateError }: ApplyFilterP
   inputData = stabilizedThis.map((el) => el[0]);
 
   if (name) {
-    inputData = inputData.filter(({ orderNumber, customer }) =>
-      [orderNumber, customer.name, customer.email].some((field) =>
+    inputData = inputData.filter((order) =>
+      [order.orderNumber, order.customer?.name, order.customer?.email].some((field) =>
         field?.toLowerCase().includes(name.toLowerCase())
       )
     );
@@ -336,7 +336,10 @@ function applyFilter({ inputData, comparator, filters, dateError }: ApplyFilterP
 
   if (!dateError) {
     if (startDate && endDate) {
-      inputData = inputData.filter((order) => fIsBetween(order.createdAt, startDate, endDate));
+      inputData = inputData.filter((order) => {
+         const date = order.createdAt || order.created_at;
+         return fIsBetween(date, startDate, endDate);
+      });
     }
   }
 

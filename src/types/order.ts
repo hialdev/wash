@@ -41,6 +41,7 @@ export interface OrderService {
    updated_at?: string;
    order_id?: string;
    service_id?: string;
+   service_variant_id?: string;
    service?: IService;
    price_at_order?: number;
    qty?: number;
@@ -83,4 +84,31 @@ export interface Order {
    order_products?: OrderProduct[];
    order_services?: OrderService[];
    order_logs?: any[];
+   rating?: number;
+   review?: string;
+   voucher_id?: string;
+   voucher?: any;
+   discount_amount?: number;
+   weight_kg?: number;
+   total_pcs?: number;
+   // Mock/Legacy aliases
+   orderNumber?: string;
+   createdAt?: string | Date;
+   totalAmount?: number;
+   totalQuantity?: number;
+   customer?: {
+      id: string;
+      name: string;
+      email: string;
+      avatarUrl?: string;
+   };
 }
+
+export type IOrderItem = Order;
+
+export type IOrderTableFilters = {
+   status: string;
+   name: string;
+   startDate: Date | null;
+   endDate: Date | null;
+};
