@@ -35,6 +35,11 @@ func main() {
 	connection.InitDB()
 	db := connection.DB
 
+	// Run Full Migrations
+	if err := connection.RunMigrations(db); err != nil {
+		log.Fatalf("❌ Migration Gagal: %v", err)
+	}
+
 	// Load file JSON
 	data, err := os.ReadFile("cmd/exports/setting/output.json")
 	if err != nil {

@@ -36,8 +36,10 @@ func main() {
 		fmt.Printf("⚠️ Gagal hapus cache: %v\n", err)
 	}
 
-	// AutoMigrate
-	db.AutoMigrate(&authModels.Permission{}, &authModels.Role{})
+	// Run Full Migrations
+	if err := connection.RunMigrations(db); err != nil {
+		log.Fatalf("❌ Migration Gagal: %v", err)
+	}
 
 	fmt.Println("🗑️ Menghapus data role_permissions dan permissions...")
 	// Gunakan TRUNCATE CASCADE untuk membersihkan semua relasi

@@ -44,8 +44,14 @@ func main() {
 	// --- Inisialisasi DB & Redis ---
 	connection.InitDB()
 	db := connection.DB
+
+	// --- 0. RUN CENTRALIZED MIGRATION FIRST ---
+	fmt.Println("\n🔄 [0/5] ==================== MIGRATING DATABASE SCHEMA ====================")
+	if err := connection.RunMigrations(db); err != nil {
+		log.Fatalf("❌ Migration Gagal: %v", err)
+	}
 	
-	fmt.Println("🔌 Menginisialisasi koneksi Redis...")
+	fmt.Println("\n🔌 Menginisialisasi koneksi Redis...")
 	connection.InitRedis()
 	if connection.Redis != nil {
 		fmt.Println("✅ Redis terhubung")
@@ -59,9 +65,6 @@ func main() {
 	if err := utils.InvalidateAllPermissions(); err != nil {
 		fmt.Printf("⚠️  Gagal hapus cache: %v\n", err)
 	}
-
-	// Pastikan tabel inti ter-AutoMigrate
-	db.AutoMigrate(&authModels.Permission{}, &authModels.Role{}, &authModels.User{})
 
 	fmt.Println("🗑️  Membersihkan data role_permissions lama...")
 	db.Exec("TRUNCATE TABLE role_permissions, permissions CASCADE")

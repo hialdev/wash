@@ -2,8 +2,6 @@ package main
 
 import (
 	"aldev/connection"
-	"aldev/modules/auth/models"
-	CMSModels "aldev/modules/cms/models"
 	"aldev/routes"
 	"aldev/utils"
 	"log"
@@ -50,58 +48,8 @@ func main() {
 	}
 	connection.InitXendit()
 
-	//Migration
-	connection.DB.AutoMigrate(
-		// Auth + RBAC
-		&models.User{},
-		&models.Role{},
-		&models.Permission{},
-		&models.Otp{},
-		&models.DeliveryAddress{},
-
-		// CMS
-		&CMSModels.SettingGroup{},
-		&CMSModels.Setting{},
-		&CMSModels.ExampleRich{},
-		&CMSModels.Agent{},
-		&CMSModels.AgentCommissionRate{},
-
-		// E-Commerce
-		&CMSModels.ProductType{},
-		&CMSModels.Product{},
-		&CMSModels.Principle{},
-		&CMSModels.Purchase{},
-		&CMSModels.PurchaseProduct{},
-		&CMSModels.Order{},
-		&CMSModels.OrderProduct{},
-		&CMSModels.OrderLogStatus{},
-		&CMSModels.OrderProcessingLog{},
-		&CMSModels.Adjustment{},
-		&CMSModels.StockMovement{},
-		&CMSModels.InventoryItem{},
-		&CMSModels.InventoryAllocation{},
-
-		// Services
-		&CMSModels.ServiceCategory{},
-		&CMSModels.Service{},
-		&CMSModels.ServiceCog{},
-		&CMSModels.OrderService{},
-		&CMSModels.OrderServiceProcess{},
-		&CMSModels.OrderServiceDetail{},
-		&CMSModels.OrderProcessLog{}, // order-level process tracking (kasir)
-
-		// Raw Materials (COGS)
-		&CMSModels.RawMaterial{},
-		&CMSModels.RawMaterialPurchase{},
-		&CMSModels.RawMaterialMovement{},
-
-		// Voucher
-		&CMSModels.Voucher{},
-
-		// Finance
-		&CMSModels.Bank{},
-		&CMSModels.Journal{},
-	)
+	// Run Centralized Migrations
+	connection.RunMigrations(connection.DB)
 
 	routes.InitRoutes(app, connection.DB)
 	app.Static("/uploads", "./uploads")
