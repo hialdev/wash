@@ -116,7 +116,10 @@ const useOrderStore = create<OrderState>()(
             return response.data;
          },
          kasirCreateOrder: async ({ data }) => {
-            const response = await protectedApi.post(`/orders`, data);
+            const headers = data instanceof FormData 
+               ? { 'Content-Type': 'multipart/form-data' } 
+               : { 'Content-Type': 'application/json' };
+            const response = await protectedApi.post(`/orders`, data, { headers });
             if (response.data.success && response.data.data) {
                set((state) => ({
                   orders: [response.data.data, ...state.orders],

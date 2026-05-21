@@ -212,6 +212,20 @@ export default function OrderDetailsView() {
       text += `------------------------------------------\n`;
       text += `*Total Berat:* ${order.weight_kg ? `${order.weight_kg} kg` : '-'}\n`;
       text += `*Total Pcs:* ${order.total_pcs ? `${order.total_pcs} Pcs` : '-'}\n`;
+
+      const detailingBreakdown: string[] = [];
+      if (order.selimut_pcs) detailingBreakdown.push(`- Selimut: ${order.selimut_pcs} Pcs`);
+      if (order.celana_pcs) detailingBreakdown.push(`- Celana: ${order.celana_pcs} Pcs`);
+      if (order.baju_pcs) detailingBreakdown.push(`- Baju: ${order.baju_pcs} Pcs`);
+      if (order.sempak_pcs) detailingBreakdown.push(`- Sempak: ${order.sempak_pcs} Pcs`);
+      if (order.bra_pcs) detailingBreakdown.push(`- Bra: ${order.bra_pcs} Pcs`);
+      if (order.sprei_pcs) detailingBreakdown.push(`- Sprei: ${order.sprei_pcs} Pcs`);
+      if (order.lainnya_pcs) detailingBreakdown.push(`- Lainnya: ${order.lainnya_pcs} Pcs`);
+
+      if (detailingBreakdown.length > 0) {
+         text += `*Rincian Pcs:*\n${detailingBreakdown.join('\n')}\n`;
+      }
+
       text += `*Catatan:* ${order.notes || '-'}\n\n`;
 
       if ((order.discount_amount || 0) > 0) {
@@ -424,6 +438,91 @@ export default function OrderDetailsView() {
                                  {order.total_pcs ? `${order.total_pcs} Pcs` : '-'}
                               </Typography>
                            </Box>
+
+                           {(order.selimut_pcs || order.celana_pcs || order.baju_pcs || order.sempak_pcs || order.bra_pcs || order.sprei_pcs || order.lainnya_pcs) ? (
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Iconify icon="solar:box-bold-duotone" width={20} sx={{ color: 'success.main' }} />
+                                    <Typography variant="body2" color="text.secondary">
+                                       Rincian Pcs Cucian
+                                    </Typography>
+                                 </Box>
+                                 <Box sx={{ pl: 4.5 }}>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
+                                       {!!order.selimut_pcs && (
+                                          <Chip
+                                             icon={<Iconify icon="solar:bed-bold-duotone" width={14} />}
+                                             label={`Selimut: ${order.selimut_pcs} pcs`}
+                                             variant="soft"
+                                             color="info"
+                                             size="small"
+                                             sx={{ fontWeight: 600 }}
+                                          />
+                                       )}
+                                       {!!order.celana_pcs && (
+                                          <Chip
+                                             icon={<Iconify icon="ph:pants-bold" width={14} />}
+                                             label={`Celana: ${order.celana_pcs} pcs`}
+                                             variant="soft"
+                                             color="warning"
+                                             size="small"
+                                             sx={{ fontWeight: 600 }}
+                                          />
+                                       )}
+                                       {!!order.baju_pcs && (
+                                          <Chip
+                                             icon={<Iconify icon="solar:t-shirt-bold-duotone" width={14} />}
+                                             label={`Baju: ${order.baju_pcs} pcs`}
+                                             variant="soft"
+                                             color="success"
+                                             size="small"
+                                             sx={{ fontWeight: 600 }}
+                                          />
+                                       )}
+                                       {!!order.sempak_pcs && (
+                                          <Chip
+                                             icon={<Iconify icon="solar:shield-user-bold-duotone" width={14} />}
+                                             label={`Sempak: ${order.sempak_pcs} pcs`}
+                                             variant="soft"
+                                             color="error"
+                                             size="small"
+                                             sx={{ fontWeight: 600 }}
+                                          />
+                                       )}
+                                       {!!order.bra_pcs && (
+                                          <Chip
+                                             icon={<Iconify icon="solar:heart-bold-duotone" width={14} />}
+                                             label={`Bra: ${order.bra_pcs} pcs`}
+                                             variant="soft"
+                                             color="secondary"
+                                             size="small"
+                                             sx={{ fontWeight: 600 }}
+                                          />
+                                       )}
+                                       {!!order.sprei_pcs && (
+                                          <Chip
+                                             icon={<Iconify icon="solar:document-bold-duotone" width={14} />}
+                                             label={`Sprei: ${order.sprei_pcs} pcs`}
+                                             variant="soft"
+                                             color="primary"
+                                             size="small"
+                                             sx={{ fontWeight: 600 }}
+                                          />
+                                       )}
+                                       {!!order.lainnya_pcs && (
+                                          <Chip
+                                             icon={<Iconify icon="solar:box-bold-duotone" width={14} />}
+                                             label={`Lainnya: ${order.lainnya_pcs} pcs`}
+                                             variant="soft"
+                                             color="default"
+                                             size="small"
+                                             sx={{ fontWeight: 600 }}
+                                          />
+                                       )}
+                                    </Stack>
+                                 </Box>
+                              </Box>
+                           ) : null}
 
                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>

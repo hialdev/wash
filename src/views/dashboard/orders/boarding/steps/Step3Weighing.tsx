@@ -6,20 +6,14 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
-import LoadingButton from '@mui/lab/LoadingButton';
-
-import type { IVoucher } from 'src/types/voucher';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { Iconify } from 'src/components/iconify';
-import { toast } from 'src/components/snackbar';
-import useOrderStore from 'src/stores/order';
 import type { UserData } from 'src/stores/user';
 
-import type { BoardingCartItem } from './Step2ServiceSelect';
 import type { IDeliveryAddressResult } from '../components/AddAddressModal';
 
 // ----------------------------------------------------------------------
@@ -27,77 +21,86 @@ import type { IDeliveryAddressResult } from '../components/AddAddressModal';
 interface Props {
    customer: UserData;
    address: IDeliveryAddressResult;
-   cartItems: BoardingCartItem[];
-   voucher: IVoucher | null;
-   discountAmount: number;
+   initialWeightKg: string;
+   initialSelimutPcs: string;
+   initialCelanaPcs: string;
+   initialBajuPcs: string;
+   initialSempakPcs: string;
+   initialBraPcs: string;
+   initialSpreiPcs: string;
+   initialLainnyaPcs: string;
+   initialVideoFile: File | null;
+   initialNotes: string;
    onBack: () => void;
-   onNext: (order: { id: string; order_number: string; total_bill: number; xendit_invoice_url?: string }) => void;
+   onNext: (data: {
+      weightKg: string;
+      selimutPcs: string;
+      celanaPcs: string;
+      bajuPcs: string;
+      sempakPcs: string;
+      braPcs: string;
+      spreiPcs: string;
+      lainnyaPcs: string;
+      videoFile: File | null;
+      notes: string;
+   }) => void;
 }
 
+export function Step3Weighing({
+   customer,
+   address,
+   initialWeightKg,
+   initialSelimutPcs,
+   initialCelanaPcs,
+   initialBajuPcs,
+   initialSempakPcs,
+   initialBraPcs,
+   initialSpreiPcs,
+   initialLainnyaPcs,
+   initialVideoFile,
+   initialNotes,
+   onBack,
+   onNext,
+}: Props) {
+   const [weightKg, setWeightKg] = useState(initialWeightKg);
+   const [selimutPcs, setSelimutPcs] = useState(initialSelimutPcs);
+   const [celanaPcs, setCelanaPcs] = useState(initialCelanaPcs);
+   const [bajuPcs, setBajuPcs] = useState(initialBajuPcs);
+   const [sempakPcs, setSempakPcs] = useState(initialSempakPcs);
+   const [braPcs, setBraPcs] = useState(initialBraPcs);
+   const [spreiPcs, setSpreiPcs] = useState(initialSpreiPcs);
+   const [lainnyaPcs, setLainnyaPcs] = useState(initialLainnyaPcs);
+   const [videoFile, setVideoFile] = useState<File | null>(initialVideoFile);
+   const [notes, setNotes] = useState(initialNotes);
 
-function formatCurrency(value: number) {
-   return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-   }).format(value);
-}
+   const computedTotalPcs =
+      (parseInt(selimutPcs, 10) || 0) +
+      (parseInt(celanaPcs, 10) || 0) +
+      (parseInt(bajuPcs, 10) || 0) +
+      (parseInt(sempakPcs, 10) || 0) +
+      (parseInt(braPcs, 10) || 0) +
+      (parseInt(spreiPcs, 10) || 0) +
+      (parseInt(lainnyaPcs, 10) || 0);
 
-export function Step3Weighing({ customer, address, cartItems, voucher, discountAmount, onBack, onNext }: Props) {
-   const { kasirCreateOrder } = useOrderStore();
-
-   const [weightKg, setWeightKg] = useState('');
-   const [totalPcs, setTotalPcs] = useState('');
-   const [notes, setNotes] = useState('');
-   const [submitting, setSubmitting] = useState(false);
-
-   const subtotal = cartItems.reduce((sum, item) => {
-      const price = item.variant ? item.variant.price : item.service.price;
-      return sum + price * item.qty;
-   }, 0);
-   const total = Math.max(0, subtotal - discountAmount);
-
-   const handleSubmit = async () => {
-      setSubmitting(true);
-      try {
-         const payload = {
-            user_id: customer.id!,
-            address_receiver: address.address,
-            phone_receiver: address.phone_number,
-            notes: notes.trim() || undefined,
-            voucher_code: voucher?.code || undefined,
-            weight_kg: weightKg ? parseFloat(weightKg) : undefined,
-            total_pcs: totalPcs ? parseInt(totalPcs, 10) : undefined,
-            products: [],
-            services: cartItems.map((item) => ({
-               service_id: item.service.id,
-               service_variant_id: item.variant?.id || undefined,
-               qty: item.qty,
-            })),
-         };
-
-         const res = await kasirCreateOrder({ data: payload });
-         if (res.success) {
-            toast.success('Pesanan berhasil dibuat!');
-            onNext({
-               id: res.data?.id,
-               order_number: res.data?.order_number,
-               total_bill: res.data?.total_bill,
-               xendit_invoice_url: res.data?.xendit_invoice_url,
-            });
-         } else {
-            toast.error(res.message || 'Gagal membuat pesanan');
-         }
-      } catch (err: any) {
-         toast.error(err?.message || 'Terjadi kesalahan');
-      }
-      setSubmitting(false);
+   const handleNext = () => {
+      onNext({
+         weightKg,
+         selimutPcs,
+         celanaPcs,
+         bajuPcs,
+         sempakPcs,
+         braPcs,
+         spreiPcs,
+         lainnyaPcs,
+         videoFile,
+         notes,
+      });
    };
 
    return (
       <Box>
          <Typography variant="h6" gutterBottom>
-            Penimbangan & Konfirmasi
+            Penimbangan & Detailing
          </Typography>
 
          <Stack spacing={3}>
@@ -124,68 +127,13 @@ export function Step3Weighing({ customer, address, cartItems, voucher, discountA
                </CardContent>
             </Card>
 
-            {/* Order Summary */}
-            <Card>
-               <CardContent>
-                  <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                     Rincian Layanan
-                  </Typography>
-                  <Stack spacing={1}>
-                     {cartItems.map((item, idx) => {
-                        const price = item.variant ? item.variant.price : item.service.price;
-                        return (
-                           <Stack key={idx} direction="row" justifyContent="space-between">
-                              <Typography variant="body2">
-                                 {item.service.name}
-                                 {item.variant && (
-                                    <Typography component="span" variant="caption" color="text.secondary">
-                                       {' '}• {item.variant.name}
-                                    </Typography>
-                                 )}{' '}
-                                 × {item.qty}
-                              </Typography>
-                              <Typography variant="body2" fontWeight={600}>
-                                 {formatCurrency(price * item.qty)}
-                              </Typography>
-                           </Stack>
-                        );
-                     })}
-                  </Stack>
-
-                  <Divider sx={{ my: 2 }} />
-
-                  <Stack spacing={0.5}>
-                     <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-                        <Typography variant="body2">{formatCurrency(subtotal)}</Typography>
-                     </Stack>
-                     {voucher && discountAmount > 0 && (
-                        <Stack direction="row" justifyContent="space-between">
-                           <Typography variant="body2" color="success.main">
-                              Voucher ({voucher.code})
-                           </Typography>
-                           <Typography variant="body2" color="success.main">
-                              -{formatCurrency(discountAmount)}
-                           </Typography>
-                        </Stack>
-                     )}
-                     <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="subtitle1" fontWeight={700}>Total</Typography>
-                        <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                           {formatCurrency(total)}
-                        </Typography>
-                     </Stack>
-                  </Stack>
-               </CardContent>
-            </Card>
-
             {/* Weighing Form */}
             <Card>
                <CardContent>
                   <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                      Data Penimbangan
                   </Typography>
-                  <Stack spacing={2}>
+                  <Stack spacing={2.5}>
                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                         <TextField
                            label="Total Berat (kg)"
@@ -205,21 +153,180 @@ export function Step3Weighing({ customer, address, cartItems, voucher, discountA
                         />
                         <TextField
                            label="Total Item (pcs)"
-                           value={totalPcs}
-                           onChange={(e) => setTotalPcs(e.target.value)}
+                           value={computedTotalPcs}
+                           disabled
                            type="number"
-                           inputProps={{ step: 1, min: 0 }}
                            InputProps={{
                               endAdornment: (
                                  <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                                    pcs
+                                    pcs (otomatis dari detail)
                                  </Typography>
                               ),
                            }}
                            fullWidth
-                           placeholder="0"
                         />
                      </Stack>
+
+                     <Box sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
+                           Detailing Pcs
+                        </Typography>
+                        <Box
+                           sx={{
+                              display: 'grid',
+                              gap: 2,
+                              gridTemplateColumns: {
+                                 xs: 'repeat(2, 1fr)',
+                                 sm: 'repeat(4, 1fr)',
+                              },
+                           }}
+                        >
+                           <TextField
+                              label="Selimut"
+                              value={selimutPcs}
+                              onChange={(e) => setSelimutPcs(e.target.value)}
+                              type="number"
+                              inputProps={{ min: 0 }}
+                              placeholder="0"
+                              size="small"
+                              InputProps={{
+                                 startAdornment: (
+                                    <InputAdornment position="start">
+                                       <Iconify icon="solar:bed-bold-duotone" width={20} />
+                                    </InputAdornment>
+                                 ),
+                              }}
+                           />
+                           <TextField
+                              label="Celana"
+                              value={celanaPcs}
+                              onChange={(e) => setCelanaPcs(e.target.value)}
+                              type="number"
+                              inputProps={{ min: 0 }}
+                              placeholder="0"
+                              size="small"
+                              InputProps={{
+                                 startAdornment: (
+                                    <InputAdornment position="start">
+                                       <Iconify icon="ph:pants-bold" width={20} />
+                                    </InputAdornment>
+                                 ),
+                              }}
+                           />
+                           <TextField
+                              label="Baju"
+                              value={bajuPcs}
+                              onChange={(e) => setBajuPcs(e.target.value)}
+                              type="number"
+                              inputProps={{ min: 0 }}
+                              placeholder="0"
+                              size="small"
+                              InputProps={{
+                                 startAdornment: (
+                                    <InputAdornment position="start">
+                                       <Iconify icon="solar:t-shirt-bold-duotone" width={20} />
+                                    </InputAdornment>
+                                 ),
+                              }}
+                           />
+                           <TextField
+                              label="Sempak"
+                              value={sempakPcs}
+                              onChange={(e) => setSempakPcs(e.target.value)}
+                              type="number"
+                              inputProps={{ min: 0 }}
+                              placeholder="0"
+                              size="small"
+                              InputProps={{
+                                 startAdornment: (
+                                    <InputAdornment position="start">
+                                       <Iconify icon="solar:shield-user-bold-duotone" width={20} />
+                                    </InputAdornment>
+                                 ),
+                              }}
+                           />
+                           <TextField
+                              label="Bra"
+                              value={braPcs}
+                              onChange={(e) => setBraPcs(e.target.value)}
+                              type="number"
+                              inputProps={{ min: 0 }}
+                              placeholder="0"
+                              size="small"
+                              InputProps={{
+                                 startAdornment: (
+                                    <InputAdornment position="start">
+                                       <Iconify icon="solar:heart-bold-duotone" width={20} />
+                                    </InputAdornment>
+                                 ),
+                              }}
+                           />
+                           <TextField
+                              label="Sprei"
+                              value={spreiPcs}
+                              onChange={(e) => setSpreiPcs(e.target.value)}
+                              type="number"
+                              inputProps={{ min: 0 }}
+                              placeholder="0"
+                              size="small"
+                              InputProps={{
+                                 startAdornment: (
+                                    <InputAdornment position="start">
+                                       <Iconify icon="solar:document-bold-duotone" width={20} />
+                                    </InputAdornment>
+                                 ),
+                              }}
+                           />
+                           <TextField
+                              label="Lainnya"
+                              value={lainnyaPcs}
+                              onChange={(e) => setLainnyaPcs(e.target.value)}
+                              type="number"
+                              inputProps={{ min: 0 }}
+                              placeholder="0"
+                              size="small"
+                              InputProps={{
+                                 startAdornment: (
+                                    <InputAdornment position="start">
+                                       <Iconify icon="solar:box-bold-duotone" width={20} />
+                                    </InputAdornment>
+                                 ),
+                              }}
+                           />
+                        </Box>
+                     </Box>
+
+                     {/* Video Upload Field */}
+                     <Box sx={{ mt: 1, p: 2, border: '1px dashed', borderColor: 'divider', borderRadius: 1.5 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', fontWeight: 600 }}>
+                           Dokumentasi Video Boarding (opsional)
+                        </Typography>
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                           <Button
+                              variant="outlined"
+                              component="label"
+                              color="info"
+                              startIcon={<Iconify icon="solar:videocamera-record-bold" />}
+                           >
+                              Pilih/Rekam Video
+                              <input
+                                 type="file"
+                                 accept="video/*"
+                                 hidden
+                                 onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) setVideoFile(file);
+                                 }}
+                              />
+                           </Button>
+                           {videoFile && (
+                              <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                 <Iconify icon="solar:check-circle-bold" /> {videoFile.name} ({(videoFile.size / (1024 * 1024)).toFixed(2)} MB)
+                              </Typography>
+                           )}
+                        </Stack>
+                     </Box>
+
                      <TextField
                         label="Catatan Tambahan (opsional)"
                         value={notes}
@@ -240,20 +347,18 @@ export function Step3Weighing({ customer, address, cartItems, voucher, discountA
                variant="outlined"
                onClick={onBack}
                startIcon={<Iconify icon="solar:arrow-left-bold" />}
-               disabled={submitting}
             >
                Kembali
             </Button>
-            <LoadingButton
-               loading={submitting}
+            <Button
                variant="contained"
                size="large"
                color="primary"
-               onClick={handleSubmit}
-               startIcon={<Iconify icon="solar:check-circle-bold" />}
+               onClick={handleNext}
+               endIcon={<Iconify icon="solar:arrow-right-bold" />}
             >
-               Submit Pesanan
-            </LoadingButton>
+               Lanjut Pilih Layanan
+            </Button>
          </Stack>
       </Box>
    );

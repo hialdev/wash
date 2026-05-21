@@ -24,7 +24,7 @@ import type { IDeliveryAddressResult } from './components/AddAddressModal';
 
 // ----------------------------------------------------------------------
 
-const STEPS = ['Pilih Customer & Alamat', 'Pilih Layanan', 'Penimbangan & Checkout', 'Pembayaran'];
+const STEPS = ['Pilih Customer & Alamat', 'Penimbangan & Detailing', 'Pilih Layanan & Checkout', 'Pembayaran'];
 
 interface CreatedOrder {
    id: string;
@@ -40,12 +40,24 @@ export function OrderBoardingView() {
    const [selectedCustomer, setSelectedCustomer] = useState<UserData | null>(null);
    const [selectedAddress, setSelectedAddress] = useState<IDeliveryAddressResult | null>(null);
 
-   // Step 2 data
+   // Step 2 data (Weighing & Detailing)
+   const [weightKg, setWeightKg] = useState('');
+   const [selimutPcs, setSelimutPcs] = useState('');
+   const [celanaPcs, setCelanaPcs] = useState('');
+   const [bajuPcs, setBajuPcs] = useState('');
+   const [sempakPcs, setSempakPcs] = useState('');
+   const [braPcs, setBraPcs] = useState('');
+   const [spreiPcs, setSpreiPcs] = useState('');
+   const [lainnyaPcs, setLainnyaPcs] = useState('');
+   const [videoFile, setVideoFile] = useState<File | null>(null);
+   const [notes, setNotes] = useState('');
+
+   // Step 3 data (Service Select & Checkout)
    const [cartItems, setCartItems] = useState<BoardingCartItem[]>([]);
    const [appliedVoucher, setAppliedVoucher] = useState<IVoucher | null>(null);
    const [discountAmount, setDiscountAmount] = useState(0);
 
-   // Step 3 → 4 data (created order)
+   // Step 4 data (Created Order)
    const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
 
    const handleStep1Next = (customer: UserData, address: IDeliveryAddressResult) => {
@@ -54,16 +66,41 @@ export function OrderBoardingView() {
       setActiveStep(1);
    };
 
-   const handleStep2Next = (items: BoardingCartItem[], voucher: IVoucher | null, discount: number) => {
-      setCartItems(items);
-      setAppliedVoucher(voucher);
-      setDiscountAmount(discount);
+   const handleStep2Next = (data: {
+      weightKg: string;
+      selimutPcs: string;
+      celanaPcs: string;
+      bajuPcs: string;
+      sempakPcs: string;
+      braPcs: string;
+      spreiPcs: string;
+      lainnyaPcs: string;
+      videoFile: File | null;
+      notes: string;
+   }) => {
+      setWeightKg(data.weightKg);
+      setSelimutPcs(data.selimutPcs);
+      setCelanaPcs(data.celanaPcs);
+      setBajuPcs(data.bajuPcs);
+      setSempakPcs(data.sempakPcs);
+      setBraPcs(data.braPcs);
+      setSpreiPcs(data.spreiPcs);
+      setLainnyaPcs(data.lainnyaPcs);
+      setVideoFile(data.videoFile);
+      setNotes(data.notes);
       setActiveStep(2);
    };
 
    const handleStep3Next = (order: CreatedOrder) => {
       setCreatedOrder(order);
       setActiveStep(3);
+   };
+
+   const handleStep3Back = (items: BoardingCartItem[], voucher: IVoucher | null, discount: number) => {
+      setCartItems(items);
+      setAppliedVoucher(voucher);
+      setDiscountAmount(discount);
+      setActiveStep(1);
    };
 
    return (
@@ -97,20 +134,45 @@ export function OrderBoardingView() {
                      onNext={handleStep1Next}
                   />
                )}
-               {activeStep === 1 && (
-                  <Step2ServiceSelect
+               {activeStep === 1 && selectedCustomer && selectedAddress && (
+                  <Step3Weighing
+                     customer={selectedCustomer}
+                     address={selectedAddress}
+                     initialWeightKg={weightKg}
+                     initialSelimutPcs={selimutPcs}
+                     initialCelanaPcs={celanaPcs}
+                     initialBajuPcs={bajuPcs}
+                     initialSempakPcs={sempakPcs}
+                     initialBraPcs={braPcs}
+                     initialSpreiPcs={spreiPcs}
+                     initialLainnyaPcs={lainnyaPcs}
+                     initialVideoFile={videoFile}
+                     initialNotes={notes}
                      onBack={() => setActiveStep(0)}
                      onNext={handleStep2Next}
                   />
                )}
+               {activeStep === 1 && (!selectedCustomer || !selectedAddress) && (
+                  <Typography color="error">Data tidak lengkap. Kembali ke langkah 1.</Typography>
+               )}
                {activeStep === 2 && selectedCustomer && selectedAddress && (
-                  <Step3Weighing
+                  <Step2ServiceSelect
                      customer={selectedCustomer}
                      address={selectedAddress}
-                     cartItems={cartItems}
-                     voucher={appliedVoucher}
-                     discountAmount={discountAmount}
-                     onBack={() => setActiveStep(1)}
+                     weightKg={weightKg}
+                     selimutPcs={selimutPcs}
+                     celanaPcs={celanaPcs}
+                     bajuPcs={bajuPcs}
+                     sempakPcs={sempakPcs}
+                     braPcs={braPcs}
+                     spreiPcs={spreiPcs}
+                     lainnyaPcs={lainnyaPcs}
+                     videoFile={videoFile}
+                     notes={notes}
+                     initialCartItems={cartItems}
+                     initialVoucher={appliedVoucher}
+                     initialDiscountAmount={discountAmount}
+                     onBack={handleStep3Back}
                      onNext={handleStep3Next}
                   />
                )}

@@ -242,6 +242,88 @@ export default function MyOrderDetailsView() {
                               </Typography>
                               <Typography variant="subtitle2">{order.total_pcs ? `${order.total_pcs} Pcs` : '-'}</Typography>
                            </Box>
+
+                           {(order.selimut_pcs || order.celana_pcs || order.baju_pcs || order.sempak_pcs || order.bra_pcs || order.sprei_pcs || order.lainnya_pcs) ? (
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                       Rincian Pcs
+                                    </Typography>
+                                 </Box>
+                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, justifyContent: 'flex-end', mt: 0.5 }}>
+                                    {!!order.selimut_pcs && (
+                                       <Chip
+                                          icon={<Iconify icon="solar:bed-bold-duotone" width={12} />}
+                                          label={`Selimut: ${order.selimut_pcs}`}
+                                          variant="soft"
+                                          color="info"
+                                          size="small"
+                                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                                       />
+                                    )}
+                                    {!!order.celana_pcs && (
+                                       <Chip
+                                          icon={<Iconify icon="ph:pants-bold" width={12} />}
+                                          label={`Celana: ${order.celana_pcs}`}
+                                          variant="soft"
+                                          color="warning"
+                                          size="small"
+                                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                                       />
+                                    )}
+                                    {!!order.baju_pcs && (
+                                       <Chip
+                                          icon={<Iconify icon="solar:t-shirt-bold-duotone" width={12} />}
+                                          label={`Baju: ${order.baju_pcs}`}
+                                          variant="soft"
+                                          color="success"
+                                          size="small"
+                                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                                       />
+                                    )}
+                                    {!!order.sempak_pcs && (
+                                       <Chip
+                                          icon={<Iconify icon="solar:shield-user-bold-duotone" width={12} />}
+                                          label={`Sempak: ${order.sempak_pcs}`}
+                                          variant="soft"
+                                          color="error"
+                                          size="small"
+                                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                                       />
+                                    )}
+                                    {!!order.bra_pcs && (
+                                       <Chip
+                                          icon={<Iconify icon="solar:heart-bold-duotone" width={12} />}
+                                          label={`Bra: ${order.bra_pcs}`}
+                                          variant="soft"
+                                          color="secondary"
+                                          size="small"
+                                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                                       />
+                                    )}
+                                    {!!order.sprei_pcs && (
+                                       <Chip
+                                          icon={<Iconify icon="solar:document-bold-duotone" width={12} />}
+                                          label={`Sprei: ${order.sprei_pcs}`}
+                                          variant="soft"
+                                          color="primary"
+                                          size="small"
+                                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                                       />
+                                    )}
+                                    {!!order.lainnya_pcs && (
+                                       <Chip
+                                          icon={<Iconify icon="solar:box-bold-duotone" width={12} />}
+                                          label={`Lainnya: ${order.lainnya_pcs}`}
+                                          variant="soft"
+                                          color="default"
+                                          size="small"
+                                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                                       />
+                                    )}
+                                 </Box>
+                              </Box>
+                           ) : null}
                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                               <Typography variant="body2" color="text.secondary">
                                  Deskripsi / Catatan

@@ -91,6 +91,13 @@ export interface Order {
    discount_amount?: number;
    weight_kg?: number;
    total_pcs?: number;
+   selimut_pcs?: number;
+   celana_pcs?: number;
+   baju_pcs?: number;
+   sempak_pcs?: number;
+   bra_pcs?: number;
+   sprei_pcs?: number;
+   lainnya_pcs?: number;
    // Mock/Legacy aliases
    orderNumber?: string;
    createdAt?: string | Date;

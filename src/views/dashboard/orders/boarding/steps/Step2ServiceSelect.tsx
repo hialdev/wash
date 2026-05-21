@@ -18,6 +18,7 @@ import CardContent from '@mui/material/CardContent';
 import Autocomplete from '@mui/material/Autocomplete';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputAdornment from '@mui/material/InputAdornment';
+import LoadingButton from '@mui/lab/LoadingButton';
 
 import type { IService, IServiceCategory } from 'src/types/service';
 import type { IVoucher } from 'src/types/voucher';
@@ -26,6 +27,9 @@ import { Iconify } from 'src/components/iconify';
 import { toast } from 'src/components/snackbar';
 import useServiceStore from 'src/stores/service';
 import useVoucherStore from 'src/stores/voucher';
+import useOrderStore from 'src/stores/order';
+import type { UserData } from 'src/stores/user';
+import type { IDeliveryAddressResult } from '../components/AddAddressModal';
 
 // ----------------------------------------------------------------------
 
@@ -37,17 +41,53 @@ export interface BoardingCartItem {
 }
 
 interface Props {
-   onBack: () => void;
-   onNext: (items: BoardingCartItem[], voucher: IVoucher | null, discount: number) => void;
+   customer: UserData;
+   address: IDeliveryAddressResult;
+   weightKg: string;
+   selimutPcs: string;
+   celanaPcs: string;
+   bajuPcs: string;
+   sempakPcs: string;
+   braPcs: string;
+   spreiPcs: string;
+   lainnyaPcs: string;
+   videoFile: File | null;
+   notes: string;
+
+   initialCartItems: BoardingCartItem[];
+   initialVoucher: IVoucher | null;
+   initialDiscountAmount: number;
+
+   onBack: (items: BoardingCartItem[], voucher: IVoucher | null, discount: number) => void;
+   onNext: (order: { id: string; order_number: string; total_bill: number; xendit_invoice_url?: string }) => void;
 }
 
 function formatCurrency(value: number) {
    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
 }
 
-export function Step2ServiceSelect({ onBack, onNext }: Props) {
+export function Step2ServiceSelect({
+   customer,
+   address,
+   weightKg,
+   selimutPcs,
+   celanaPcs,
+   bajuPcs,
+   sempakPcs,
+   braPcs,
+   spreiPcs,
+   lainnyaPcs,
+   videoFile,
+   notes,
+   initialCartItems,
+   initialVoucher,
+   initialDiscountAmount,
+   onBack,
+   onNext,
+}: Props) {
    const { fetchCatalogServices, fetchServiceCategories, categories } = useServiceStore();
    const { fetchVouchers, validateVoucher } = useVoucherStore();
+   const { kasirCreateOrder } = useOrderStore();
 
    const [services, setServices] = useState<IService[]>([]);
    const [loading, setLoading] = useState(false);
@@ -56,13 +96,14 @@ export function Step2ServiceSelect({ onBack, onNext }: Props) {
    const debouncedSearch = useDebounce(searchQuery, 400);
 
    // Cart state
-   const [cartItems, setCartItems] = useState<BoardingCartItem[]>([]);
+   const [cartItems, setCartItems] = useState<BoardingCartItem[]>(initialCartItems);
 
    // Voucher state
-   const [voucherCode, setVoucherCode] = useState('');
-   const [appliedVoucher, setAppliedVoucher] = useState<IVoucher | null>(null);
-   const [discountAmount, setDiscountAmount] = useState(0);
+   const [voucherCode, setVoucherCode] = useState(initialVoucher?.code || '');
+   const [appliedVoucher, setAppliedVoucher] = useState<IVoucher | null>(initialVoucher);
+   const [discountAmount, setDiscountAmount] = useState(initialDiscountAmount);
    const [voucherLoading, setVoucherLoading] = useState(false);
+   const [submitting, setSubmitting] = useState(false);
 
    // Fetch catalog services
    const fetchServices = useCallback(async () => {
@@ -175,12 +216,69 @@ export function Step2ServiceSelect({ onBack, onNext }: Props) {
 
    const total = Math.max(0, subtotal - discountAmount);
 
-   const handleNext = () => {
+   const computedTotalPcs =
+      (parseInt(selimutPcs, 10) || 0) +
+      (parseInt(celanaPcs, 10) || 0) +
+      (parseInt(bajuPcs, 10) || 0) +
+      (parseInt(sempakPcs, 10) || 0) +
+      (parseInt(braPcs, 10) || 0) +
+      (parseInt(spreiPcs, 10) || 0) +
+      (parseInt(lainnyaPcs, 10) || 0);
+
+   const handleCheckout = async () => {
       if (cartItems.length === 0) {
          toast.error('Pilih minimal 1 layanan');
          return;
       }
-      onNext(cartItems, appliedVoucher, discountAmount);
+      setSubmitting(true);
+      try {
+         const payload = {
+            user_id: customer.id!,
+            address_receiver: address.address,
+            phone_receiver: address.phone_number,
+            notes: notes.trim() || undefined,
+            voucher_code: appliedVoucher?.code || undefined,
+            weight_kg: weightKg ? parseFloat(weightKg) : undefined,
+            total_pcs: computedTotalPcs,
+            selimut_pcs: parseInt(selimutPcs, 10) || 0,
+            celana_pcs: parseInt(celanaPcs, 10) || 0,
+            baju_pcs: parseInt(bajuPcs, 10) || 0,
+            sempak_pcs: parseInt(sempakPcs, 10) || 0,
+            bra_pcs: parseInt(braPcs, 10) || 0,
+            sprei_pcs: parseInt(spreiPcs, 10) || 0,
+            lainnya_pcs: parseInt(lainnyaPcs, 10) || 0,
+            products: [],
+            services: cartItems.map((item) => ({
+               service_id: item.service.id,
+               service_variant_id: item.variant?.id || undefined,
+               qty: item.qty,
+            })),
+         };
+
+         let submitData: any = payload;
+         if (videoFile) {
+            const formData = new FormData();
+            formData.append('data', JSON.stringify(payload));
+            formData.append('video', videoFile);
+            submitData = formData;
+         }
+
+         const res = await kasirCreateOrder({ data: submitData });
+         if (res.success) {
+            toast.success('Pesanan berhasil dibuat!');
+            onNext({
+               id: res.data?.id,
+               order_number: res.data?.order_number,
+               total_bill: res.data?.total_bill,
+               xendit_invoice_url: res.data?.xendit_invoice_url,
+            });
+         } else {
+            toast.error(res.message || 'Gagal membuat pesanan');
+         }
+      } catch (err: any) {
+         toast.error(err?.message || 'Terjadi kesalahan');
+      }
+      setSubmitting(false);
    };
 
    // Check if a service (or its variant) is in cart
@@ -192,11 +290,109 @@ export function Step2ServiceSelect({ onBack, onNext }: Props) {
       return isInCart(service.id);
    };
 
+   const detailingItems = [
+      { name: 'Selimut', value: parseInt(selimutPcs, 10) || 0, icon: 'solar:bed-bold-duotone', color: 'info' },
+      { name: 'Celana', value: parseInt(celanaPcs, 10) || 0, icon: 'ph:pants-bold', color: 'warning' },
+      { name: 'Baju', value: parseInt(bajuPcs, 10) || 0, icon: 'solar:t-shirt-bold-duotone', color: 'success' },
+      { name: 'Sempak', value: parseInt(sempakPcs, 10) || 0, icon: 'solar:shield-user-bold-duotone', color: 'error' },
+      { name: 'Bra', value: parseInt(braPcs, 10) || 0, icon: 'solar:heart-bold-duotone', color: 'secondary' },
+      { name: 'Sprei', value: parseInt(spreiPcs, 10) || 0, icon: 'solar:document-bold-duotone', color: 'primary' },
+      { name: 'Lainnya', value: parseInt(lainnyaPcs, 10) || 0, icon: 'solar:box-bold-duotone', color: 'default' },
+   ].filter((item) => item.value > 0);
+
    return (
       <Box>
          <Grid container spacing={3}>
             {/* ===== LEFT: Service Catalog ===== */}
             <Grid size={{ xs: 12, md: 8 }}>
+               {/* Quick Info Summary Card */}
+               <Card
+                  sx={{
+                     mb: 3,
+                     background: (theme) => `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.primary.lighter} 100%)`,
+                     border: '1px solid',
+                     borderColor: 'primary.light',
+                     boxShadow: (theme) => theme.customShadows?.card || theme.shadows[2],
+                  }}
+               >
+                  <CardContent sx={{ p: 2.5 }}>
+                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
+                        {/* Weight & Total Pcs Group */}
+                        <Stack direction="row" spacing={3} sx={{ flexShrink: 0 }}>
+                           <Stack direction="row" alignItems="center" spacing={1.5}>
+                              <Box
+                                 sx={{
+                                    p: 1,
+                                    borderRadius: 1.5,
+                                    bgcolor: 'primary.main',
+                                    color: 'primary.contrastText',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                 }}
+                              >
+                                 <Iconify icon="solar:scale-bold-duotone" width={24} />
+                              </Box>
+                              <Box>
+                                 <Typography variant="caption" color="text.secondary" display="block">
+                                    Total Berat
+                                 </Typography>
+                                 <Typography variant="h6" fontWeight={800}>
+                                    {weightKg ? `${weightKg} kg` : '0 kg'}
+                                 </Typography>
+                              </Box>
+                           </Stack>
+
+                           <Stack direction="row" alignItems="center" spacing={1.5}>
+                              <Box
+                                 sx={{
+                                    p: 1,
+                                    borderRadius: 1.5,
+                                    bgcolor: 'secondary.main',
+                                    color: 'secondary.contrastText',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                 }}
+                              >
+                                 <Iconify icon="solar:box-bold-duotone" width={24} />
+                              </Box>
+                              <Box>
+                                 <Typography variant="caption" color="text.secondary" display="block">
+                                    Total Item
+                                 </Typography>
+                                 <Typography variant="h6" fontWeight={800}>
+                                    {computedTotalPcs} pcs
+                                 </Typography>
+                              </Box>
+                           </Stack>
+                        </Stack>
+
+                        {/* Detailing Details */}
+                        {detailingItems.length > 0 && (
+                           <Box sx={{ flex: 1, width: '100%' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 600 }}>
+                                 Rincian Item Pcs:
+                              </Typography>
+                              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
+                                 {detailingItems.map((item, idx) => (
+                                    <Chip
+                                       key={idx}
+                                       icon={<Iconify icon={item.icon} width={16} />}
+                                       label={`${item.name}: ${item.value} pcs`}
+                                       variant="soft"
+                                       color={item.color as any}
+                                       size="small"
+                                       sx={{ fontWeight: 600 }}
+                                    />
+                                 ))}
+                              </Stack>
+                           </Box>
+                        )}
+                     </Stack>
+                  </CardContent>
+               </Card>
+
                <Typography variant="h6" gutterBottom>
                   Katalog Layanan
                </Typography>
@@ -465,20 +661,23 @@ export function Step2ServiceSelect({ onBack, onNext }: Props) {
          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
             <Button
                variant="outlined"
-               onClick={onBack}
+               onClick={() => onBack(cartItems, appliedVoucher, discountAmount)}
                startIcon={<Iconify icon="solar:arrow-left-bold" />}
+               disabled={submitting}
             >
                Kembali
             </Button>
-            <Button
+            <LoadingButton
+               loading={submitting}
                variant="contained"
                size="large"
-               onClick={handleNext}
+               color="primary"
+               onClick={handleCheckout}
                disabled={cartItems.length === 0}
-               endIcon={<Iconify icon="solar:arrow-right-bold" />}
+               startIcon={<Iconify icon="solar:check-circle-bold" />}
             >
-               Lanjut ke Penimbangan
-            </Button>
+               Submit Pesanan
+            </LoadingButton>
          </Stack>
       </Box>
    );

@@ -123,8 +123,10 @@ export default function SignInView() {
          } else {
             toast.error(send.message);
          }
-      } catch (error) {
+      } catch (error: any) {
          console.error(error);
+         const errMsg = error.response?.data?.message || 'Terjadi kesalahan. Silakan coba lagi.';
+         toast.error(errMsg);
       }
    });
 
@@ -188,7 +190,9 @@ export default function SignInView() {
             </Button>
          </Stack>
          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Jika tidak ada akun, tetaplah sign in dan akunmu akan otomatis terbuat.
+            {process.env.NEXT_PUBLIC_AUTO_REGIST === 'false'
+               ? 'Jika tidak memiliki akun, silakan hubungi admin atau kasir untuk mendaftarkan akun Anda.'
+               : 'Jika tidak ada akun, tetaplah sign in dan akunmu akan otomatis terbuat.'}
          </Typography>
       </Form>
    );
