@@ -108,16 +108,17 @@ export default function SignInView() {
       console.info('DATA', data);
       if (!isValid) return;
       const isUseEmail = activeTab === 'email';
+      const cleanEmail = data.email ? data.email.toLowerCase().trim() : '';
       try {
          const send = await sendOTP(
             {
-               login: isUseEmail && data.email ? data.email : (data.phoneNumber ?? ''),
+               login: isUseEmail && cleanEmail ? cleanEmail : (data.phoneNumber ?? ''),
                isEmail: isUseEmail,
                country_code: (data.phoneNumber_country_code ?? 'ID')
             })
          if (send.success) {
             toast.info('Permintaan berhasil, mengalihkan ke halaman verifikasi...')
-            setRegist({ isEmail: isUseEmail, phone: data.phoneNumber ?? null, email: data.email ?? null, purpose: send.data?.purpose })
+            setRegist({ isEmail: isUseEmail, phone: data.phoneNumber ?? null, email: cleanEmail || null, purpose: send.data?.purpose })
             reset();
             router.push(paths.auth.verify)
          } else {
