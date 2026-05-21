@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -82,6 +83,18 @@ func (h *OtpHandler) SendOTP(c *fiber.Ctx) error {
 	}
 
 	if err := h.DB.First(&usr, lookupField, lookupValue).Error; err != nil {
+		autoRegistStr := os.Getenv("AUTO_REGIST")
+		autoRegist := true
+		if autoRegistStr != "" {
+			if parsed, err := strconv.ParseBool(autoRegistStr); err == nil {
+				autoRegist = parsed
+			}
+		}
+
+		if !autoRegist {
+			return utils.RespApi(c, "bad", "Akun anda tidak ditemukan, silahkan hubungi admin / kasir", nil)
+		}
+
 		purpose = "register"
 	} else if usr.Username != nil && *usr.Username != "" {
 		purpose = "login"

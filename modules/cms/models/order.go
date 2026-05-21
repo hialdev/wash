@@ -39,8 +39,16 @@ type Order struct {
 	Review *string `json:"review,omitempty" gorm:"type:text"`
 
 	// Kasir order boarding fields
-	WeightKg *float64 `json:"weight_kg,omitempty" gorm:"type:decimal(10,3)"`
-	TotalPcs *int     `json:"total_pcs,omitempty" gorm:"type:int"`
+	WeightKg   *float64 `json:"weight_kg,omitempty" gorm:"type:decimal(10,3)"`
+	TotalPcs   *int     `json:"total_pcs,omitempty" gorm:"type:int"`
+	Video      *string  `json:"video,omitempty" gorm:"type:text"`
+	SelimutPcs *int     `json:"selimut_pcs,omitempty" gorm:"type:int"`
+	CelanaPcs  *int     `json:"celana_pcs,omitempty" gorm:"type:int"`
+	BajuPcs    *int     `json:"baju_pcs,omitempty" gorm:"type:int"`
+	SempakPcs  *int     `json:"sempak_pcs,omitempty" gorm:"type:int"`
+	BraPcs     *int     `json:"bra_pcs,omitempty" gorm:"type:int"`
+	SpreiPcs   *int     `json:"sprei_pcs,omitempty" gorm:"type:int"`
+	LainnyaPcs *int     `json:"lainnya_pcs,omitempty" gorm:"type:int"`
 }
 
 type OrderProduct struct {

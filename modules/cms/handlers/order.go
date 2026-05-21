@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -45,8 +46,16 @@ type OrderInput struct {
 	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
 	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
 	// Kasir order boarding fields
-	WeightKg *float64 `json:"weight_kg,omitempty"`
-	TotalPcs *int     `json:"total_pcs,omitempty"`
+	WeightKg   *float64 `json:"weight_kg,omitempty"`
+	TotalPcs   *int     `json:"total_pcs,omitempty"`
+	Video      *string  `json:"video,omitempty"`
+	SelimutPcs *int     `json:"selimut_pcs,omitempty"`
+	CelanaPcs  *int     `json:"celana_pcs,omitempty"`
+	BajuPcs    *int     `json:"baju_pcs,omitempty"`
+	SempakPcs  *int     `json:"sempak_pcs,omitempty"`
+	BraPcs     *int     `json:"bra_pcs,omitempty"`
+	SpreiPcs   *int     `json:"sprei_pcs,omitempty"`
+	LainnyaPcs *int     `json:"lainnya_pcs,omitempty"`
 }
 
 type CustomerOrderInput struct {
@@ -169,8 +178,37 @@ func (h *OrderHandler) GetAllOrders(c *fiber.Ctx) error {
 func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 	var input OrderInput
 
-	if err := c.BodyParser(&input); err != nil {
-		return utils.RespApi(c, "bad", "Request Body tidak valid", err.Error())
+	contentType := c.Get("Content-Type")
+	if strings.Contains(contentType, "multipart/form-data") {
+		dataStr := c.FormValue("data")
+		if err := json.Unmarshal([]byte(dataStr), &input); err != nil {
+			return utils.RespApi(c, "bad", "Gagal parse metadata order", err.Error())
+		}
+
+		// Handle video upload if present
+		videoFile, err := c.FormFile("video")
+		if err == nil && videoFile != nil {
+			// Validate file size (max 50MB)
+			if videoFile.Size > 50*1024*1024 {
+				return utils.RespApi(c, "bad", fmt.Sprintf("File video %s terlalu besar (maksimal 50MB)", videoFile.Filename), nil)
+			}
+
+			// Ensure directory exists
+			utils.EnsureDir("uploads/videos")
+
+			// Generate filename
+			filename := fmt.Sprintf("%d-%s", utils.MakeTimestamp(), strings.ReplaceAll(videoFile.Filename, " ", "-"))
+			path := filepath.Join("uploads", "videos", filename)
+
+			if err := c.SaveFile(videoFile, path); err != nil {
+				return utils.RespApi(c, "ise", "Gagal menyimpan video", err.Error())
+			}
+			input.Video = &path
+		}
+	} else {
+		if err := c.BodyParser(&input); err != nil {
+			return utils.RespApi(c, "bad", "Request Body tidak valid", err.Error())
+		}
 	}
 
 	if err := utils.Validate.Struct(input); err != nil {
@@ -428,6 +466,14 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 		DiscountAmount:  &discountAmount,
 		WeightKg:        input.WeightKg,
 		TotalPcs:        input.TotalPcs,
+		Video:           input.Video,
+		SelimutPcs:      input.SelimutPcs,
+		CelanaPcs:       input.CelanaPcs,
+		BajuPcs:         input.BajuPcs,
+		SempakPcs:       input.SempakPcs,
+		BraPcs:          input.BraPcs,
+		SpreiPcs:        input.SpreiPcs,
+		LainnyaPcs:      input.LainnyaPcs,
 	}
 
 	if err := tx.Create(&order).Error; err != nil {
