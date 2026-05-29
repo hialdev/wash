@@ -5,6 +5,7 @@ import (
 	"aldev/utils"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -135,6 +136,8 @@ func (h *ServiceHandler) AddService(c *fiber.Ctx) error {
 		priceStr := c.FormValue("price")
 		unit := c.FormValue("unit")
 		estimatedDurationStr := c.FormValue("estimated_duration")
+		estimateHourStr := c.FormValue("estimate_hour")
+		minimumQtyOrderStr := c.FormValue("minimum_qty_order")
 		isActiveStr := c.FormValue("is_active")
 		isParentStr := c.FormValue("is_parent")
 		categoryIDStr := c.FormValue("service_category_id")
@@ -180,6 +183,24 @@ func (h *ServiceHandler) AddService(c *fiber.Ctx) error {
 			ServiceCategoryID: categoryID,
 			ParentID:          parentID,
 		}
+
+		if estimateHourStr != "" {
+			eh, _ := strconv.ParseFloat(estimateHourStr, 64)
+			service.EstimateHour = &eh
+		}
+		if minimumQtyOrderStr != "" {
+			mqo, _ := strconv.ParseFloat(minimumQtyOrderStr, 64)
+			service.MinimumQtyOrder = &mqo
+		}
+	}
+
+	// Sync estimate_hour <-> estimated_duration
+	syncDurationFields(&service)
+
+	// Validate minimum_qty_order >= 1
+	if service.MinimumQtyOrder != nil && *service.MinimumQtyOrder < 1 {
+		defaultMqo := 1.0
+		service.MinimumQtyOrder = &defaultMqo
 	}
 
 	// 2. Business Constraint: An active group parent CANNOT hold a localized BOM directly
@@ -281,6 +302,27 @@ func (h *ServiceHandler) UpdateService(c *fiber.Ctx) error {
 		estimatedDuration, _ := strconv.Atoi(estimatedDurationStr)
 		service.EstimatedDuration = &estimatedDuration
 	}
+
+	estimateHourStr := c.FormValue("estimate_hour")
+	if estimateHourStr != "" {
+		eh, _ := strconv.ParseFloat(estimateHourStr, 64)
+		service.EstimateHour = &eh
+	}
+
+	minimumQtyOrderStr := c.FormValue("minimum_qty_order")
+	if minimumQtyOrderStr != "" {
+		mqo, _ := strconv.ParseFloat(minimumQtyOrderStr, 64)
+		service.MinimumQtyOrder = &mqo
+	}
+
+	// Sync estimate_hour <-> estimated_duration
+	syncDurationFields(&service)
+
+	// Validate minimum_qty_order >= 1
+	if service.MinimumQtyOrder != nil && *service.MinimumQtyOrder < 1 {
+		defaultMqo := 1.0
+		service.MinimumQtyOrder = &defaultMqo
+	}
 	if isActiveStr != "" {
 		isActive, _ := strconv.ParseBool(isActiveStr)
 		service.IsActive = &isActive
@@ -369,4 +411,16 @@ func (h *ServiceHandler) DeleteService(c *fiber.Ctx) error {
 	}
 
 	return utils.RespApi(c, "ok", "Berhasil menghapus Service", nil)
+}
+
+// syncDurationFields ensures estimate_hour and estimated_duration stay in sync.
+// Priority: estimate_hour wins if both are provided.
+func syncDurationFields(s *models.Service) {
+	if s.EstimateHour != nil && *s.EstimateHour > 0 {
+		mins := int(math.Round(*s.EstimateHour * 60))
+		s.EstimatedDuration = &mins
+	} else if s.EstimatedDuration != nil && *s.EstimatedDuration > 0 {
+		hours := float64(*s.EstimatedDuration) / 60.0
+		s.EstimateHour = &hours
+	}
 }

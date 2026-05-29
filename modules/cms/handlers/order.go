@@ -85,6 +85,7 @@ func (h *OrderHandler) GetOrder(c *fiber.Ctx) error {
 	var order models.Order
 	if err := h.DB.Preload("OrderProducts.Product").
 		Preload("OrderServices.Service"). // Preload services
+		Preload("OrderServices.ServiceVariant"). // Preload variants
 		Preload("Voucher").
 		First(&order, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "ise", "Gagal mendapatkan data Order", err.Error())
@@ -108,6 +109,7 @@ func (h *OrderHandler) GetAllOrders(c *fiber.Ctx) error {
 	db := h.DB.Distinct().
 		Preload("OrderProducts.Product").
 		Preload("OrderServices.Service").
+		Preload("OrderServices.ServiceVariant").
 		Preload("Voucher")
 
 	// Filter search
@@ -546,6 +548,7 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 	// Load relations
 	h.DB.Preload("OrderProducts.Product").
 		Preload("OrderServices.Service"). // Preload services
+		Preload("OrderServices.ServiceVariant"). // Preload variants
 		First(&order, "id = ?", order.ID)
 
 	return utils.RespApi(c, "ok", "Berhasil membuat data Order", order)

@@ -17,7 +17,9 @@ type Service struct {
 	Description       *string          `json:"description,omitempty" gorm:"type:text"`
 	Price             *float64         `json:"price" gorm:"type:decimal(15,2);not null" validate:"required,gte=0"`
 	Unit              *string          `json:"unit" gorm:"type:varchar(20);not null" validate:"required"`
-	EstimatedDuration *int             `json:"estimated_duration,omitempty"` // in minutes
+	EstimatedDuration *int             `json:"estimated_duration,omitempty"`                          // in minutes
+	EstimateHour      *float64         `json:"estimate_hour,omitempty" gorm:"type:decimal(10,2)"`     // in hours
+	MinimumQtyOrder   *float64         `json:"minimum_qty_order" gorm:"type:decimal(10,2);default:1" validate:"omitempty,min=1"` // BOM set size, default 1
 	IsActive          *bool            `json:"is_active" gorm:"default:true"`
 	IsParent          *bool            `json:"is_parent" gorm:"default:false"`
 	Images            *string          `json:"images,omitempty" gorm:"type:text"` // JSON array
