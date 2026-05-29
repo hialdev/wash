@@ -61,6 +61,8 @@ const ServiceBasicSchema = z.object({
    price: z.number().min(0, { message: 'Harga tidak boleh kosong!' }),
    unit: z.string().min(1, { message: 'Satuan wajib diisi!' }),
    estimated_duration: z.number().min(0).optional().default(0),
+   estimate_hour: z.number().min(0).optional().default(0),
+   minimum_qty_order: z.number().min(1, { message: 'Minimum qty order minimal 1!' }).default(1),
    is_active: z.boolean().default(true),
    is_parent: z.boolean().default(false),
    service_category_id: z.string().optional(),
@@ -75,6 +77,8 @@ interface IVariantLocal {
    price: number;
    unit: string;
    estimated_duration: number;
+   estimate_hour: number;
+   minimum_qty_order: number;
    is_active: boolean;
 }
 
@@ -101,7 +105,9 @@ export function ServiceStepperForm() {
       name: '',
       price: '',
       unit: 'kg',
+      estimate_hour: '0',
       estimated_duration: '0',
+      minimum_qty_order: '1',
       description: '',
       is_active: true,
    });
@@ -126,6 +132,8 @@ export function ServiceStepperForm() {
          price: 0,
          unit: 'kg',
          estimated_duration: 0,
+         estimate_hour: 0,
+         minimum_qty_order: 1,
          is_active: true,
          is_parent: false,
          service_category_id: '',
@@ -201,13 +209,16 @@ export function ServiceStepperForm() {
          return;
       }
 
+      const ehVal = parseFloat(variantForm.estimate_hour) || 0;
       const newVar: IVariantLocal = {
          tempId: `v-${Date.now()}`,
          name: variantForm.name,
          description: variantForm.description,
          price: parseFloat(variantForm.price),
          unit: variantForm.unit,
-         estimated_duration: parseInt(variantForm.estimated_duration, 10) || 0,
+         estimate_hour: ehVal,
+         estimated_duration: Math.round(ehVal * 60),
+         minimum_qty_order: parseFloat(variantForm.minimum_qty_order) || 1,
          is_active: variantForm.is_active,
       };
 
@@ -217,7 +228,9 @@ export function ServiceStepperForm() {
          name: '',
          price: '',
          unit: basicValues.unit || 'kg', // fallback unit same as parent
+         estimate_hour: '0',
          estimated_duration: '0',
+         minimum_qty_order: '1',
          description: '',
          is_active: true,
       });
@@ -274,9 +287,11 @@ export function ServiceStepperForm() {
          const rootServicePayload: any = {
             name: basicValues.name,
             description: basicValues.description,
-            price: basicValues.is_parent ? 0 : basicValues.price, // if parent, set price to 0 or parent price? The original uses 0 mostly but we will pass 0/provided
+            price: basicValues.is_parent ? 0 : basicValues.price,
             unit: basicValues.unit,
             estimated_duration: basicValues.estimated_duration,
+            estimate_hour: basicValues.estimate_hour,
+            minimum_qty_order: basicValues.minimum_qty_order,
             is_active: basicValues.is_active,
             is_parent: basicValues.is_parent,
             service_category_id: basicValues.service_category_id || null,
@@ -300,6 +315,8 @@ export function ServiceStepperForm() {
                   price: v.price,
                   unit: v.unit,
                   estimated_duration: v.estimated_duration,
+                  estimate_hour: v.estimate_hour,
+                  minimum_qty_order: v.minimum_qty_order,
                   is_active: v.is_active,
                   service_category_id: basicValues.service_category_id || null,
                   service_cogs: vCogs.map((c) => ({
@@ -421,12 +438,47 @@ export function ServiceStepperForm() {
                               </MenuItem>
                            ))}
                         </Field.Select>
+                     </Stack>
 
-                        <Field.Text
-                           name="estimated_duration"
-                           label="Estimasi Durasi (Menit)"
-                           type="number"
-                        />
+                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                        <Stack spacing={0.5} sx={{ flex: 1 }}>
+                           <Field.Text
+                              name="estimate_hour"
+                              label="Estimasi Durasi (Jam)"
+                              type="number"
+                              slotProps={{
+                                 input: {
+                                    endAdornment: <InputAdornment position="end">jam</InputAdornment>,
+                                    inputProps: { min: 0, step: 0.5 },
+                                 },
+                              }}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                 const hours = parseFloat(e.target.value) || 0;
+                                 setValue('estimate_hour', hours);
+                                 setValue('estimated_duration', Math.round(hours * 60));
+                              }}
+                           />
+                           <Typography variant="caption" color="text.secondary" sx={{ pl: 1 }}>
+                              = {basicValues.estimated_duration || 0} menit
+                           </Typography>
+                        </Stack>
+
+                        <Stack spacing={0.5} sx={{ flex: 1 }}>
+                           <Field.Text
+                              name="minimum_qty_order"
+                              label="Minimum Qty Order *"
+                              type="number"
+                              slotProps={{
+                                 input: {
+                                    endAdornment: <InputAdornment position="end">{basicValues.unit}</InputAdornment>,
+                                    inputProps: { min: 1, step: 1 },
+                                 },
+                              }}
+                           />
+                           <Typography variant="caption" color="text.secondary" sx={{ pl: 1 }}>
+                              BOM berlaku per {basicValues.minimum_qty_order || 1} {basicValues.unit}
+                           </Typography>
+                        </Stack>
                      </Stack>
                   </>
                )}
@@ -478,12 +530,37 @@ export function ServiceStepperForm() {
                   </TextField>
                </Stack>
                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+                  <Stack spacing={0.5}>
+                     <TextField
+                        label="Estimasi (Jam)"
+                        size="small"
+                        type="number"
+                        value={variantForm.estimate_hour}
+                        onChange={(e) => {
+                           const hours = e.target.value;
+                           setVariantForm({ 
+                              ...variantForm, 
+                              estimate_hour: hours,
+                              estimated_duration: String(Math.round((parseFloat(hours) || 0) * 60)),
+                           });
+                        }}
+                        slotProps={{
+                           input: { inputProps: { min: 0, step: 0.5 } },
+                        }}
+                     />
+                     <Typography variant="caption" color="text.secondary" sx={{ pl: 0.5 }}>
+                        = {variantForm.estimated_duration || 0} menit
+                     </Typography>
+                  </Stack>
                   <TextField
-                     label="Estimasi (Menit)"
+                     label="Min. Qty Order"
                      size="small"
                      type="number"
-                     value={variantForm.estimated_duration}
-                     onChange={(e) => setVariantForm({ ...variantForm, estimated_duration: e.target.value })}
+                     value={variantForm.minimum_qty_order}
+                     onChange={(e) => setVariantForm({ ...variantForm, minimum_qty_order: e.target.value })}
+                     slotProps={{
+                        input: { inputProps: { min: 1, step: 1 } },
+                     }}
                   />
                   <TextField
                      label="Deskripsi Singkat"
@@ -524,6 +601,7 @@ export function ServiceStepperForm() {
                               <TableCell>Harga</TableCell>
                               <TableCell>Satuan</TableCell>
                               <TableCell>Estimasi</TableCell>
+                              <TableCell>Min. Qty</TableCell>
                               <TableCell align="right">Aksi</TableCell>
                            </TableRow>
                         </TableHead>
@@ -536,7 +614,8 @@ export function ServiceStepperForm() {
                                  </TableCell>
                                  <TableCell>{fCurrency(v.price)}</TableCell>
                                  <TableCell>{v.unit}</TableCell>
-                                 <TableCell>{v.estimated_duration} mnt</TableCell>
+                                 <TableCell>{v.estimate_hour} jam ({v.estimated_duration} mnt)</TableCell>
+                                 <TableCell>{v.minimum_qty_order} {v.unit}</TableCell>
                                  <TableCell align="right">
                                     <IconButton color="error" onClick={() => handleRemoveVariant(v.tempId)}>
                                        <Iconify icon="solar:trash-bin-trash-bold" />
@@ -586,11 +665,25 @@ export function ServiceStepperForm() {
                )}
 
                <Box sx={{ p: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
                      {basicValues.is_parent 
                         ? `Input Bahan Baku untuk Varian: ${localVariants.find(v => v.tempId === activeCogsTab)?.name || ''}`
                         : 'Input Bahan Baku untuk Layanan Utama'
                      }
+                  </Typography>
+                  <Typography variant="caption" color="info.main" sx={{ mb: 2, display: 'block', bgcolor: 'info.lighter', px: 1.5, py: 0.75, borderRadius: 0.75 }}>
+                     💡 BOM ini berlaku per{' '}
+                     <strong>
+                        {basicValues.is_parent
+                           ? (localVariants.find(v => v.tempId === activeCogsTab)?.minimum_qty_order || 1)
+                           : (basicValues.minimum_qty_order || 1)
+                        }{' '}
+                        {basicValues.is_parent
+                           ? (localVariants.find(v => v.tempId === activeCogsTab)?.unit || basicValues.unit)
+                           : basicValues.unit
+                        }
+                     </strong>
+                     . Saat order, qty material akan dihitung proporsional berdasarkan qty pesanan.
                   </Typography>
 
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3, alignItems: 'center' }}>
@@ -700,9 +793,17 @@ export function ServiceStepperForm() {
                      Mode Grup: <strong>{basicValues.is_parent ? 'YA (Memiliki Varian)' : 'TIDAK'}</strong>
                   </Typography>
                   {!basicValues.is_parent && (
-                     <Typography variant="subtitle2" sx={{ mt: 1 }} color="text.primary">
-                        Harga Dasar: {fCurrency(basicValues.price)} / {basicValues.unit}
-                     </Typography>
+                     <>
+                        <Typography variant="subtitle2" sx={{ mt: 1 }} color="text.primary">
+                           Harga Dasar: {fCurrency(basicValues.price)} / {basicValues.unit}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                           Estimasi: {basicValues.estimate_hour || 0} jam ({basicValues.estimated_duration || 0} menit)
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                           Minimum Qty Order: <strong>{basicValues.minimum_qty_order || 1} {basicValues.unit}</strong>
+                        </Typography>
+                     </>
                   )}
                   <Typography variant="caption" color="text.disabled" display="block" sx={{ mt: 1 }}>
                      Media Gambar: {basicValues.images?.length} file terpilih.

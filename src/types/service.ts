@@ -21,6 +21,8 @@ export interface IService {
    price: number;
    unit: string; // 'kg', 'pcs', 'set'
    estimated_duration?: number; // in minutes
+   estimate_hour?: number;      // in hours
+   minimum_qty_order?: number;  // BOM set size, default 1
    is_active: boolean;
    is_parent?: boolean;
    images?: string; // JSON string from backend

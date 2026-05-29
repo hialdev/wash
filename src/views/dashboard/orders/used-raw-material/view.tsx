@@ -79,25 +79,42 @@ export default function UsedRawMaterialView() {
             const aggregated: any[] = [];
             for (const orderSvc of ordData.order_services) {
                try {
-                  const cogsRes = await fetchServiceCogs(orderSvc.service_id);
+                  // Use variant ID if available (parent services have no cogs; cogs live on variants)
+                  const cogServiceId = orderSvc.service_variant_id || orderSvc.service_id;
+
+                  // Fetch both service cogs and service detail (for minimum_qty_order)
+                  const [cogsRes, svcDetailRes] = await Promise.all([
+                     fetchServiceCogs(cogServiceId),
+                     getService(cogServiceId),
+                  ]);
                   const cogs = cogsRes?.data || [];
+                  const svcDetail = svcDetailRes?.data || svcDetailRes;
+                  const minimumQtyOrder = svcDetail?.minimum_qty_order || 1;
+
                   if (cogs.length > 0) {
-                     let svcTitle = orderSvc.service?.name;
+                     // Build display name: "Parent - Variant" or just "Service"
+                     const parentName = orderSvc.service?.name || '';
+                     const variantName = orderSvc.service_variant?.name || svcDetail?.name || '';
+                     const svcTitle = orderSvc.service_variant_id
+                        ? `${parentName} — ${variantName}`
+                        : parentName || variantName;
 
                      aggregated.push({
                         serviceName: svcTitle,
                         serviceQty: orderSvc.qty,
+                        minimumQtyOrder,
+                        serviceUnit: svcDetail?.unit || '',
                         materials: cogs.map((c: any) => ({
                            raw_material_id: c.raw_material_id,
                            title: c.raw_material?.title || 'Unknown Material',
                            unit: c.raw_material?.unit || c.unit,
                            cogQty: c.qty,
-                           calculatedQty: c.qty * orderSvc.qty,
+                           calculatedQty: (c.qty / minimumQtyOrder) * orderSvc.qty,
                         })),
                      });
                   }
                } catch (error) {
-                  console.error('Failed to fetch cogs for service', orderSvc.service_id);
+                  console.error('Failed to fetch cogs for service', orderSvc.service_id, error);
                }
             }
             setBomAggregated(aggregated);
@@ -371,17 +388,22 @@ export default function UsedRawMaterialView() {
                      {bomAggregated.map((agg, index) => (
                         <Box key={index}>
                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                              {agg.serviceName} - {agg.serviceQty} unit
+                              {agg.serviceName} - {agg.serviceQty} {agg.serviceUnit}
+                              {agg.minimumQtyOrder > 1 && (
+                                 <Typography component="span" variant="caption" color="text.secondary">
+                                    {' '}(BOM per {agg.minimumQtyOrder} {agg.serviceUnit})
+                                 </Typography>
+                              )}
                            </Typography>
                            <Stack spacing={0.5} sx={{ pl: 2 }}>
                               {agg.materials.map((mat: any, idx: number) => (
                                  <Typography key={idx} variant="body2" color="text.secondary">
-                                    - {mat.title}, qty digunakan = {mat.cogQty} x {agg.serviceQty} ={' '}
+                                    - {mat.title}, qty = ({mat.cogQty} / {agg.minimumQtyOrder}) x {agg.serviceQty} ={' '}
                                     <Box
                                        component="span"
                                        sx={{ color: 'text.primary', fontWeight: 600 }}
                                     >
-                                       {mat.calculatedQty} {mat.unit}
+                                       {Number(mat.calculatedQty.toFixed(3))} {mat.unit}
                                     </Box>
                                  </Typography>
                               ))}
