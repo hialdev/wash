@@ -66,6 +66,14 @@ interface OrderState {
       id: string;
       data: { weight_kg?: number; total_pcs?: number; notes?: string };
    }) => Promise<any>;
+   pickupDone: ({ id }: { id: string }) => Promise<any>;
+   createPickupOrder: ({ data }: { data: any }) => Promise<any>;
+   createStoreOrder: ({ data }: { data: any }) => Promise<any>;
+   submitWeighing: ({ id, data }: { id: string; data: FormData }) => Promise<any>;
+   confirmMinQty: ({ id, data }: { id: string; data: FormData }) => Promise<any>;
+   setFulfillmentMode: ({ id, data }: { id: string; data: FormData }) => Promise<any>;
+   startDelivery: ({ id, data }: { id: string; data: FormData }) => Promise<any>;
+   completeOrder: ({ id, data }: { id: string; data: FormData }) => Promise<any>;
 }
 
 const useOrderStore = create<OrderState>()(
@@ -213,6 +221,48 @@ const useOrderStore = create<OrderState>()(
          },
          kasirValidateAndProcess: async ({ id, data }) => {
             const response = await protectedApi.post(`/orders/${id}/kasir-validate-and-process`, data);
+            return response.data;
+         },
+         createPickupOrder: async ({ data }) => {
+            const response = await protectedApi.post(`/orders/create-pickup`, data);
+            return response.data;
+         },
+         createStoreOrder: async ({ data }) => {
+            const response = await protectedApi.post(`/orders/create-store`, data);
+            return response.data;
+         },
+         submitWeighing: async ({ id, data }) => {
+            const response = await protectedApi.post(`/orders/${id}/weighing`, data, {
+               headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            return response.data;
+         },
+         confirmMinQty: async ({ id, data }) => {
+            const response = await protectedApi.post(`/orders/${id}/confirm-min-qty`, data, {
+               headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            return response.data;
+         },
+         setFulfillmentMode: async ({ id, data }) => {
+            const response = await protectedApi.post(`/orders/${id}/fulfillment`, data, {
+               headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            return response.data;
+         },
+         startDelivery: async ({ id, data }) => {
+            const response = await protectedApi.post(`/orders/${id}/start-delivery`, data, {
+               headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            return response.data;
+         },
+         completeOrder: async ({ id, data }) => {
+            const response = await protectedApi.post(`/orders/${id}/complete`, data, {
+               headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            return response.data;
+         },
+         pickupDone: async ({ id }) => {
+            const response = await protectedApi.post(`/orders/${id}/pickup-done`);
             return response.data;
          },
       }),

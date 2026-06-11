@@ -19,15 +19,13 @@ import Badge from '@mui/material/Badge';
 import { useBoolean } from 'minimal-shared/hooks';
 
 import { paths } from 'src/routes/al/paths';
+import { api } from 'src/lib/al/axios';
 import { Iconify } from 'src/components/iconify';
 import useOrderStore from 'src/stores/order';
 import useServiceStore from 'src/stores/service';
 import useAuthStore from 'src/stores/auth';
-import useCartStore from 'src/stores/cart';
 import { IService } from 'src/types/service';
 import { ServiceCard } from '../catalog/components/service-card';
-import { CartModal } from '../catalog/components/cart-modal';
-import { AddServiceToCartModal } from '../catalog/components/add-service-to-cart-modal';
 
 // ----------------------------------------------------------------------
 
@@ -47,26 +45,21 @@ export function CustomerDashboard() {
    const [orders, setOrders] = useState<any[]>([]);
    const [services, setServices] = useState<any[]>([]);
    const [loading, setLoading] = useState(true);
+   const [adminPhone, setAdminPhone] = useState<string>('');
 
-   const cartModal = useBoolean();
-   const addServiceToCartModal = useBoolean();
-   const [selectedService, setSelectedService] = useState<IService | null>(null);
-   const [preselectedVariant, setPreselectedVariant] = useState<IService | null>(null);
-   
-   const { getItemCount } = useCartStore();
-   const cartItemCount = getItemCount();
-
-   const handleOpenAddService = (service: IService, variant?: IService) => {
-      setSelectedService(service);
-      setPreselectedVariant(variant || null);
-      addServiceToCartModal.onTrue();
-   };
-
-   const handleCloseAddService = () => {
-      setSelectedService(null);
-      setPreselectedVariant(null);
-      addServiceToCartModal.onFalse();
-   };
+   useEffect(() => {
+      const getWAInfo = async () => {
+         try {
+            const res = await api.get('/wa-info');
+            if (res.data?.success && res.data?.data?.connected) {
+               setAdminPhone(res.data.data.phone);
+            }
+         } catch (err) {
+            console.error('Error fetching WA info:', err);
+         }
+      };
+      getWAInfo();
+   }, []);
 
    useEffect(() => {
       const load = async () => {
@@ -225,7 +218,9 @@ export function CustomerDashboard() {
                      <Grid size={{ xs: 12, sm: 4 }} key={svc.id}>
                         <ServiceCard
                            service={svc}
-                           onAddToCart={(variant) => handleOpenAddService(svc, variant)}
+                           onAddToCart={() => {}}
+                           isCustomer={true}
+                           adminPhone={adminPhone}
                         />
                      </Grid>
                   ))}
@@ -233,36 +228,6 @@ export function CustomerDashboard() {
             </Box>
          )}
       </Stack>
-
-      {/* Floating Cart Button */}
-      <Fab
-         color="primary"
-         aria-label="cart"
-         onClick={cartModal.onTrue}
-         sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            zIndex: 1000,
-         }}
-      >
-         <Badge badgeContent={cartItemCount} color="error">
-            <Iconify icon="solar:cart-large-2-bold" width={24} />
-         </Badge>
-      </Fab>
-
-      {/* Add to Cart Modal (Service) */}
-      {selectedService && (
-         <AddServiceToCartModal
-            open={addServiceToCartModal.value}
-            onClose={handleCloseAddService}
-            service={selectedService}
-            initialVariant={preselectedVariant || undefined}
-         />
-      )}
-
-      {/* Cart Modal */}
-      <CartModal open={cartModal.value} onClose={cartModal.onFalse} />
       </>
    );
 }

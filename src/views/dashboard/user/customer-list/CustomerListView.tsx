@@ -19,6 +19,8 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { paths } from 'src/routes/al/paths';
 
 import useUserStore from 'src/stores/user';
+import useAuthStore from 'src/stores/auth';
+import { DeleteRestrictedModal } from '../components/DeleteRestrictedModal';
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { toast } from 'src/components/snackbar';
@@ -36,14 +38,17 @@ import {
 
 import { UserTableRow } from '../../user/components/user-table-row';
 import { CustomerAddModal } from './CustomerAddModal';
+import { CustomerAddressModal } from './CustomerAddressModal';
 
 // ----------------------------------------------------------------------
 
 const TABLE_HEAD: TableHeadCellProps[] = [
+   { id: '', label: '' },
    { id: 'name', label: 'Nama' },
    { id: 'phone', label: 'No. HP' },
    { id: 'email', label: 'Email' },
-   { id: '', width: 88 },
+   { id: 'address', label: 'Alamat' },
+   { id: 'action', width: 88 },
 ];
 
 // ----------------------------------------------------------------------
@@ -52,13 +57,20 @@ export function CustomerListView() {
    const table = useTable();
    const confirmDialog = useBoolean();
    const addDialog = useBoolean();
+   const addressDialog = useBoolean();
+   const restrictedDialog = useBoolean();
 
    const { all, delete: destroy } = useUserStore();
+   const { user } = useAuthStore();
+
+   const myRole = user?.role?.name?.toLowerCase() || '';
+   const isRestricted = myRole === 'manager' || myRole === 'kasir';
 
    const [tableData, setTableData] = useState<UserData[]>([]);
    const [loading, setLoading] = useState(true);
    const [searchName, setSearchName] = useState('');
    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+   const [selectedAddressCustomer, setSelectedAddressCustomer] = useState<UserData | null>(null);
 
    const [pagination, setPagination] = useState({
       page: 1,
@@ -181,10 +193,18 @@ export function CustomerListView() {
                                     selected={table.selected.includes(row.id!)}
                                     onSelectRow={() => table.onSelectRow(row.id!)}
                                     onDeleteRow={() => {
-                                       setDeleteTarget(row.id!);
-                                       confirmDialog.onTrue();
+                                       if (isRestricted) {
+                                          restrictedDialog.onTrue();
+                                       } else {
+                                          setDeleteTarget(row.id!);
+                                          confirmDialog.onTrue();
+                                       }
                                     }}
                                     editHref={`${paths.dashboard.users.root}/${row.id}/edit`}
+                                    onViewAddresses={() => {
+                                       setSelectedAddressCustomer(row);
+                                       addressDialog.onTrue();
+                                    }}
                                  />
                               ))}
                               {notFound && <TableNoData notFound={notFound} />}
@@ -241,6 +261,23 @@ export function CustomerListView() {
             open={addDialog.value}
             onClose={addDialog.onFalse}
             onSuccess={() => fetchData()}
+         />
+
+         {/* Customer Address Modal */}
+         <CustomerAddressModal
+            customer={selectedAddressCustomer}
+            open={addressDialog.value}
+            onClose={() => {
+               addressDialog.onFalse();
+               setSelectedAddressCustomer(null);
+            }}
+            onSuccess={() => fetchData()}
+         />
+
+         {/* Delete Restricted Modal */}
+         <DeleteRestrictedModal
+            open={restrictedDialog.value}
+            onClose={restrictedDialog.onFalse}
          />
       </>
    );

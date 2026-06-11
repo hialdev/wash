@@ -33,10 +33,14 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
    const { requestRefund, waitRestock } = useOrderStore();
 
    const statusColor = {
+      pickup: 'info',
+      calculating: 'warning',
       waiting_payment: 'warning',
       waiting_process: 'info',
       payment_verification: 'info',
       on_progress: 'primary',
+      waiting_finish: 'success',
+      delivering: 'primary',
       finish: 'success',
       stock_issue: 'error',
       waiting_restock: 'info',
@@ -46,16 +50,20 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
    } as const;
 
    const statusLabel = {
-      waiting_payment: 'Waiting Payment',
-      waiting_process: 'Waiting Process',
-      on_progress: 'On Progress',
-      finish: 'Finish',
-      stock_issue: 'Stock Issue',
-      payment_verification: 'Payment Verification',
-      waiting_restock: 'Waiting Restock',
+      pickup: 'Penjemputan',
+      calculating: 'Penimbangan',
+      waiting_payment: 'Menunggu Pembayaran',
+      waiting_process: 'Menunggu Diproses',
+      payment_verification: 'Verifikasi Pembayaran',
+      on_progress: 'Dalam Proses',
+      waiting_finish: 'Siap Diambil/Diantar',
+      delivering: 'Sedang Diantar',
+      finish: 'Selesai',
+      stock_issue: 'Masalah Stok',
+      waiting_restock: 'Menunggu Restock',
       refund_pending: 'Refund Pending',
       refunded: 'Refunded',
-      canceled: 'Canceled',
+      canceled: 'Dibatalkan',
    } as const;
 
    const handleViewDetails = () => {

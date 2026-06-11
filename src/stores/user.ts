@@ -1,4 +1,5 @@
 import type { RoleData } from "./role";
+import type { IDeliveryAddress } from "./delivery-address";
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -16,6 +17,7 @@ export interface UserData {
    role_id?: string | null,
 
    role?: RoleData,
+   delivery_addresses?: IDeliveryAddress[];
 }
 
 interface UserState {

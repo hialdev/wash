@@ -21,6 +21,7 @@ import { CustomPopover } from 'src/components/custom-popover';
 
 import { UserCUForm } from '../forms/user-cu-form';
 import useAuthStore from 'src/stores/auth';
+import { DeleteRestrictedModal } from './DeleteRestrictedModal';
 
 
 // ----------------------------------------------------------------------
@@ -32,16 +33,20 @@ type Props = {
    onSelectRow: () => void;
    onDeleteRow: () => void;
    onSuccessEdit: () => void;
+   onViewAddresses?: () => void;
 };
 
-export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow, onSuccessEdit }: Props) {
+export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow, onSuccessEdit, onViewAddresses }: Props) {
    const { user: currentUserSession } = useAuthStore();
    const menuActions = usePopover();
    const confirmDialog = useBoolean();
    const quickEditForm = useBoolean();
+   const restrictedDialog = useBoolean();
 
    const myRole = currentUserSession?.role?.name?.toLowerCase() || '';
    const rowUserRole = row.role?.name?.toLowerCase() || '';
+
+   const isRestricted = myRole === 'manager' || myRole === 'kasir';
 
    // Manager cannot edit or delete other Managers
    const canEditOrDelete = !(myRole === 'manager' && rowUserRole === 'manager');
@@ -65,7 +70,11 @@ export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow
          <MenuList>
             <MenuItem
                onClick={() => {
-                  confirmDialog.onTrue();
+                  if (isRestricted) {
+                     restrictedDialog.onTrue();
+                  } else {
+                     confirmDialog.onTrue();
+                  }
                   menuActions.onClose();
                }}
                sx={{ color: 'error.main' }}
@@ -130,7 +139,21 @@ export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow
 
             <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.email && row.email != "" ? row.email: '---'}</TableCell>
 
-            <TableCell sx={{ whiteSpace: 'nowrap' }}><Chip variant='soft' color='info' label={row.role_id ? row.role?.name : 'not set'} /></TableCell>
+            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+               {onViewAddresses ? (
+                  <Button
+                     size="small"
+                     variant="soft"
+                     color="primary"
+                     startIcon={<Iconify icon="solar:map-point-bold-duotone" width={16} />}
+                     onClick={onViewAddresses}
+                  >
+                     {`${row.delivery_addresses?.length || 0} Alamat`}
+                  </Button>
+               ) : (
+                  <Chip variant="soft" color="info" label={row.role_id ? row.role?.name : 'not set'} />
+               )}
+            </TableCell>
 
             <TableCell>
                {canEditOrDelete && (
@@ -158,6 +181,10 @@ export function UserTableRow({ row, selected, editHref, onSelectRow, onDeleteRow
          {renderQuickEditForm()}
          {renderMenuActions()}
          {renderConfirmDialog()}
+         <DeleteRestrictedModal
+            open={restrictedDialog.value}
+            onClose={restrictedDialog.onFalse}
+         />
       </>
    );
 }

@@ -16,12 +16,15 @@ import { Iconify } from 'src/components/iconify';
 import { fCurrency } from 'src/utils/format-number';
 import { Lightbox, useLightbox } from 'src/components/lightbox';
 import { CONFIG } from 'src/global-config';
+import { toast } from 'src/components/snackbar';
 
 // ----------------------------------------------------------------------
 
 type Props = {
    service: IService;
    onAddToCart: (variant?: IService) => void;
+   isCustomer?: boolean;
+   adminPhone?: string;
 };
 
 function parseImages(images?: string): string[] {
@@ -33,7 +36,7 @@ function parseImages(images?: string): string[] {
    }
 }
 
-export function ServiceCard({ service, onAddToCart }: Props) {
+export function ServiceCard({ service, onAddToCart, isCustomer = false, adminPhone = '' }: Props) {
    const rawImages = parseImages(service.images);
    const slides = rawImages.map((img) => ({
       src: img.startsWith('http') ? img : `${CONFIG.apiHostUrl}/${img}`,
@@ -57,6 +60,20 @@ export function ServiceCard({ service, onAddToCart }: Props) {
       : null;
 
    const hasVariants = service.variants && service.variants.length > 0;
+
+   const handleWhatsAppRedirect = (variantName?: string) => {
+      if (!adminPhone) {
+         toast.error('WhatsApp admin tidak terhubung. Silakan hubungi admin toko.');
+         return;
+      }
+      const message = variantName
+         ? `Saya tertarik dengan layanan ${service.name} - ${variantName}`
+         : `Saya tertarik dengan layanan ${service.name}`;
+
+      const cleanPhone = adminPhone.replace(/\D/g, '');
+      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      window.open(waUrl, '_blank');
+   };
 
    const getPriceDisplay = () => {
       if (!hasVariants) {
@@ -114,7 +131,7 @@ export function ServiceCard({ service, onAddToCart }: Props) {
                         width: '100%',
                         height: '100%',
                         cursor: 'pointer',
-                     }}
+                      }}
                      onClick={() => lightbox.onOpen(imageUrl)}
                   />
                )}
@@ -210,48 +227,103 @@ export function ServiceCard({ service, onAddToCart }: Props) {
             </CardContent>
 
             <CardActions sx={{ px: 2, pb: 2, pt: 0, display: 'block', width: '100%' }}>
-               {hasVariants ? (
-                  <Stack spacing={1} sx={{ mt: 0.5, width: '100%' }}>
-                     {service.variants?.map((variant: IService) => (
-                        <Button
-                           key={variant.id}
-                           fullWidth
-                           variant="outlined"
-                           size="small"
-                           onClick={() => onAddToCart(variant)}
-                           sx={{
-                              justifyContent: 'space-between',
-                              textTransform: 'none',
-                              py: 0.75,
-                              px: 1.5,
-                              borderColor: 'divider',
-                              color: 'text.primary',
-                              '&:hover': {
-                                 borderColor: 'primary.main',
-                                 bgcolor: 'primary.lighter',
-                                 color: 'primary.darker',
-                              }
-                           }}
-                        >
-                           <Typography variant="caption" fontWeight={600}>
-                              {variant.name}
-                           </Typography>
-                           <Typography variant="caption" fontWeight={700} sx={{ color: 'primary.main' }}>
-                              {fCurrency(variant.price || 0)}
-                           </Typography>
-                        </Button>
-                     ))}
-                  </Stack>
+               {isCustomer ? (
+                  hasVariants ? (
+                     <Stack spacing={1} sx={{ mt: 0.5, width: '100%' }}>
+                        {service.variants?.map((variant: IService) => (
+                           <Button
+                              key={variant.id}
+                              fullWidth
+                              variant="outlined"
+                              size="small"
+                              startIcon={<Iconify icon="mdi:whatsapp" width={18} sx={{ color: 'success.main' }} />}
+                              onClick={() => handleWhatsAppRedirect(variant.name)}
+                              sx={{
+                                 justifyContent: 'space-between',
+                                 textTransform: 'none',
+                                 py: 0.75,
+                                 px: 1.5,
+                                 borderColor: 'success.light',
+                                 color: 'success.darker',
+                                 bgcolor: 'success.lighter',
+                                 '&:hover': {
+                                    borderColor: 'success.main',
+                                    bgcolor: 'success.soft',
+                                 }
+                              }}
+                           >
+                              <Typography variant="caption" fontWeight={600}>
+                                 Hubungi Admin ({variant.name})
+                              </Typography>
+                              <Typography variant="caption" fontWeight={700} sx={{ color: 'success.darker' }}>
+                                 {fCurrency(variant.price || 0)}
+                              </Typography>
+                           </Button>
+                        ))}
+                     </Stack>
+                  ) : (
+                     <Button
+                        fullWidth
+                        variant="contained"
+                        color="success"
+                        size="small"
+                        startIcon={<Iconify icon="mdi:whatsapp" width={18} />}
+                        onClick={() => handleWhatsAppRedirect()}
+                        sx={{
+                           bgcolor: '#25D366',
+                           color: 'white',
+                           '&:hover': {
+                              bgcolor: '#128C7E'
+                           }
+                        }}
+                     >
+                        Hubungi Admin via WA
+                     </Button>
+                  )
                ) : (
-                  <Button
-                     fullWidth
-                     variant="contained"
-                     size="small"
-                     startIcon={<Iconify icon="solar:cart-plus-bold" />}
-                     onClick={() => onAddToCart()}
-                  >
-                     Tambah
-                  </Button>
+                  hasVariants ? (
+                     <Stack spacing={1} sx={{ mt: 0.5, width: '100%' }}>
+                        {service.variants?.map((variant: IService) => (
+                           <Button
+                              key={variant.id}
+                              fullWidth
+                              variant="outlined"
+                              size="small"
+                              onClick={() => onAddToCart(variant)}
+                              sx={{
+                                 justifyContent: 'space-between',
+                                 textTransform: 'none',
+                                 py: 0.75,
+                                 px: 1.5,
+                                 borderColor: 'divider',
+                                 color: 'text.primary',
+                                 '&:hover': {
+                                    borderColor: 'primary.main',
+                                    bgcolor: 'primary.lighter',
+                                    color: 'primary.darker',
+                                 }
+                              }}
+                           >
+                              <Typography variant="caption" fontWeight={600}>
+                                 {variant.name}
+                              </Typography>
+                              <Typography variant="caption" fontWeight={700} sx={{ color: 'primary.main' }}>
+                                 {fCurrency(variant.price || 0)}
+                              </Typography>
+                           </Button>
+                        ))}
+                     </Stack>
+                  ) : (
+                     <Button
+                        fullWidth
+                        variant="contained"
+                        size="small"
+                        startIcon={<Iconify icon="solar:cart-plus-bold" />}
+                        onClick={() => onAddToCart()}
+                     >
+                        Tambah
+                     </Button>
+                  )
                )}
             </CardActions>
          </Card>

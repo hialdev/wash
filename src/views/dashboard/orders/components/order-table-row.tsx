@@ -48,9 +48,13 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
    const [openVerifyPaymentModal, setOpenVerifyPaymentModal] = useState(false);
 
    const statusColor = {
+      pickup: 'info',
+      calculating: 'warning',
       waiting_payment: 'warning',
       waiting_process: 'info',
       on_progress: 'primary',
+      waiting_finish: 'success',
+      delivering: 'primary',
       finish: 'success',
       stock_issue: 'error',
       payment_verification: 'info',
@@ -61,16 +65,20 @@ export function OrderTableRow({ row, onActionSuccess }: Props) {
    } as const;
 
    const statusLabel = {
-      waiting_payment: 'Waiting Payment',
-      waiting_process: 'Waiting Process',
-      on_progress: 'On Progress',
-      finish: 'Finished',
-      stock_issue: 'Stock Issue',
-      payment_verification: 'Payment Verification',
-      waiting_restock: 'Waiting Restock',
+      pickup: 'Penjemputan',
+      calculating: 'Penimbangan',
+      waiting_payment: 'Menunggu Pembayaran',
+      waiting_process: 'Menunggu Diproses',
+      on_progress: 'Dalam Proses',
+      waiting_finish: 'Siap Diambil/Diantar',
+      delivering: 'Sedang Diantar',
+      finish: 'Selesai',
+      stock_issue: 'Masalah Stok',
+      payment_verification: 'Verifikasi Pembayaran',
+      waiting_restock: 'Menunggu Restock',
       refund_pending: 'Refund Pending',
       refunded: 'Refunded',
-      canceled: 'Canceled',
+      canceled: 'Dibatalkan',
    } as const;
 
    const handleActionSuccess = () => {

@@ -44,6 +44,7 @@ import { UserCUForm } from '../forms/user-cu-form';
 import { UserTableRow } from '../components/user-table-row';
 import { UserTableToolbar } from '../components/user-table-toolbar';
 import { UserTableFiltersResult } from '../components/user-table-filters-result';
+import { DeleteRestrictedModal } from '../components/DeleteRestrictedModal';
 
 // ----------------------------------------------------------------------
 
@@ -64,6 +65,10 @@ export function UserListView() {
    const { all, delete: destroy } = useUserStore();
    const { roles, all: getRoles } = useRoleStore();
    const { authData, user } = useAuthStore();
+   const restrictedDialog = useBoolean();
+
+   const myRole = user?.role?.name?.toLowerCase() || '';
+   const isRestricted = myRole === 'manager' || myRole === 'kasir';
 
    const [tableData, setTableData] = useState<UserData[]>([]);
    const [rolesData, setRolesData] = useState<string[]>([]);
@@ -158,6 +163,10 @@ export function UserListView() {
 
    const handleDeleteRow = useCallback(
       async (id: string) => {
+         if (isRestricted) {
+            restrictedDialog.onTrue();
+            return;
+         }
 
          if (id === authData.userId) { toast.info("Tidak dapat menghapus diri sendiri!"); return }
          try {
@@ -171,10 +180,14 @@ export function UserListView() {
          fetchData();
          table.onUpdatePageDeleteRow(dataInPage.length);
       },
-      [dataInPage.length, table, tableData]
+      [dataInPage.length, table, tableData, isRestricted, restrictedDialog, authData.userId, destroy, fetchData]
    );
 
    const handleDeleteRows = useCallback(async () => {
+      if (isRestricted) {
+         restrictedDialog.onTrue();
+         return;
+      }
       if (table.selected.length === 0) {
          toast.info("Tidak ada data yang dipilih!");
          return;
@@ -206,7 +219,7 @@ export function UserListView() {
       } catch (error) {
          toast.error("Terjadi kesalahan saat menghapus data!");
       }
-   }, [authData.userId, table, dataInPage.length, dataFiltered.length]);
+   }, [authData.userId, table, dataInPage.length, dataFiltered.length, isRestricted, restrictedDialog, destroy, fetchData]);
 
 
    // ----------------------------------------------------------------------------------------------------------
@@ -297,7 +310,13 @@ export function UserListView() {
                         }
                         action={
                            <Tooltip title="Delete">
-                              <IconButton color="primary" onClick={confirmDialog.onTrue}>
+                              <IconButton color="primary" onClick={() => {
+                                 if (isRestricted) {
+                                    restrictedDialog.onTrue();
+                                 } else {
+                                    confirmDialog.onTrue();
+                                 }
+                              }}>
                                  <Iconify icon="solar:trash-bin-trash-bold" />
                               </IconButton>
                            </Tooltip>
@@ -380,6 +399,10 @@ export function UserListView() {
 
          {renderConfirmDialog()}
          {renderFormAdd()}
+         <DeleteRestrictedModal
+            open={restrictedDialog.value}
+            onClose={restrictedDialog.onFalse}
+         />
       </>
    );
 }

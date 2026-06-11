@@ -60,7 +60,11 @@ export function OrderBoardingView() {
    // Step 4 data (Created Order)
    const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
 
-   const handleStep1Next = (customer: UserData, address: IDeliveryAddressResult) => {
+   const handleStep1Next = (
+      customer: UserData,
+      address: IDeliveryAddressResult,
+      deliveryMode: 'store' | 'pickup'
+   ) => {
       setSelectedCustomer(customer);
       setSelectedAddress(address);
       setActiveStep(1);

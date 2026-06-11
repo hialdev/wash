@@ -43,31 +43,39 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
 
    // Removed fetchLogs and store usage since data is passed via props
 
-   const statusColor = {
-      waiting_payment: 'warning',
-      waiting_process: 'info',
-      payment_verification: 'info',
-      on_progress: 'primary',
-      finish: 'success',
-      stock_issue: 'error',
-      waiting_restock: 'info',
-      refund_pending: 'warning',
-      refunded: 'error',
-      canceled: 'error',
-   } as const;
-
-   const statusLabel = {
-      waiting_payment: 'Waiting Payment',
-      waiting_process: 'Waiting Process',
-      payment_verification: 'Payment Verification',
-      on_progress: 'On Progress',
-      finish: 'Finished',
-      stock_issue: 'Stock Issue',
-      waiting_restock: 'Waiting Restock',
-      refund_pending: 'Refund Pending',
-      refunded: 'Refunded',
-      canceled: 'Canceled',
-   } as const;
+    const statusColor = {
+       pickup: 'info',
+       calculating: 'warning',
+       waiting_payment: 'warning',
+       waiting_process: 'info',
+       payment_verification: 'info',
+       on_progress: 'primary',
+       waiting_finish: 'success',
+       delivering: 'primary',
+       finish: 'success',
+       stock_issue: 'error',
+       waiting_restock: 'info',
+       refund_pending: 'warning',
+       refunded: 'error',
+       canceled: 'error',
+    } as const;
+ 
+    const statusLabel = {
+       pickup: 'Penjemputan',
+       calculating: 'Penimbangan',
+       waiting_payment: 'Menunggu Pembayaran',
+       waiting_process: 'Menunggu Diproses',
+       payment_verification: 'Verifikasi Pembayaran',
+       on_progress: 'Dalam Proses',
+       waiting_finish: 'Siap Diambil/Diantar',
+       delivering: 'Sedang Diantar',
+       finish: 'Selesai',
+       stock_issue: 'Masalah Stok',
+       waiting_restock: 'Menunggu Restock',
+       refund_pending: 'Refund Pending',
+       refunded: 'Refunded',
+       canceled: 'Dibatalkan',
+    } as const;
 
    const parseImages = (imagesStr?: string): string[] => {
       if (!imagesStr) return [];

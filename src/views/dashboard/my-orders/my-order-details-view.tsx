@@ -135,10 +135,14 @@ export default function MyOrderDetailsView() {
    }
 
    const statusColor: Record<string, any> = {
+      pickup: 'info',
+      calculating: 'warning',
       waiting_payment: 'warning',
       waiting_process: 'info',
       payment_verification: 'info',
       on_progress: 'primary',
+      waiting_finish: 'success',
+      delivering: 'primary',
       finish: 'success',
       stock_issue: 'error',
       waiting_restock: 'info',
@@ -148,16 +152,20 @@ export default function MyOrderDetailsView() {
    };
 
    const statusLabel: Record<string, string> = {
-      waiting_payment: 'Waiting Payment',
-      waiting_process: 'Waiting Process',
-      payment_verification: 'Payment Verification',
-      on_progress: 'On Progress',
-      finish: 'Finished',
-      stock_issue: 'Stock Issue',
-      waiting_restock: 'Waiting Restock',
+      pickup: 'Penjemputan',
+      calculating: 'Penimbangan',
+      waiting_payment: 'Menunggu Pembayaran',
+      waiting_process: 'Menunggu Diproses',
+      payment_verification: 'Verifikasi Pembayaran',
+      on_progress: 'Dalam Proses',
+      waiting_finish: 'Siap Diambil/Diantar',
+      delivering: 'Sedang Diantar',
+      finish: 'Selesai',
+      stock_issue: 'Masalah Stok',
+      waiting_restock: 'Menunggu Restock',
       refund_pending: 'Refund Pending',
       refunded: 'Refunded',
-      canceled: 'Canceled',
+      canceled: 'Dibatalkan',
    };
 
    const parseImages = (imagesStr?: string): string[] => {
@@ -242,6 +250,36 @@ export default function MyOrderDetailsView() {
                               </Typography>
                               <Typography variant="subtitle2">{order.total_pcs ? `${order.total_pcs} Pcs` : '-'}</Typography>
                            </Box>
+                           {order.fulfillment_mode && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                 <Typography variant="body2" color="text.secondary">
+                                    Metode Serah Terima
+                                 </Typography>
+                                 <Typography variant="subtitle2">
+                                    {order.fulfillment_mode === 'pickup' ? 'Ambil Sendiri di Toko' : 'Diantar Kurir'}
+                                 </Typography>
+                              </Box>
+                           )}
+                           {order.delivery_name && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                 <Typography variant="body2" color="text.secondary">
+                                    Kurir Pengantar
+                                 </Typography>
+                                 <Typography variant="subtitle2">
+                                    {order.delivery_name} {order.delivery_phone ? `(${order.delivery_phone})` : ''}
+                                 </Typography>
+                              </Box>
+                           )}
+                           {order.delivery_address && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                 <Typography variant="body2" color="text.secondary">
+                                    Alamat Pengiriman
+                                 </Typography>
+                                 <Typography variant="subtitle2" sx={{ maxWidth: '60%', textAlign: 'right' }}>
+                                    {order.delivery_address}
+                                 </Typography>
+                              </Box>
+                           )}
 
                            {(order.selimut_pcs || order.celana_pcs || order.baju_pcs || order.sempak_pcs || order.bra_pcs || order.sprei_pcs || order.lainnya_pcs) ? (
                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -340,6 +378,33 @@ export default function MyOrderDetailsView() {
                                  {order.notes || 'Tidak ada catatan'}
                               </Typography>
                            </Box>
+                           {(order.weighing_images || order.video) && (
+                              <Box sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Bukti Penimbangan Fisik</Typography>
+                                 {order.weighing_images && order.weighing_images !== '[]' && (
+                                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                                       {parseImages(order.weighing_images).map((img, idx) => (
+                                          <Box
+                                             key={idx}
+                                             component="img"
+                                             src={`${CONFIG.apiHostUrl}/${img}`}
+                                             sx={{ width: 64, height: 64, borderRadius: 1, objectFit: 'cover', cursor: 'pointer', border: 1, borderColor: 'divider' }}
+                                             onClick={() => window.open(`${CONFIG.apiHostUrl}/${img}`, '_blank')}
+                                          />
+                                       ))}
+                                    </Stack>
+                                 )}
+                                 {order.video && (
+                                    <Box sx={{ maxWidth: '100%', mt: 0.5 }}>
+                                       <video
+                                          src={order.video.startsWith('http') ? order.video : `${CONFIG.apiHostUrl}/${order.video}`}
+                                          controls
+                                          style={{ width: '100%', borderRadius: 8, border: '1px solid var(--mui-palette-divider)' }}
+                                       />
+                                    </Box>
+                                 )}
+                              </Box>
+                           )}
                            <Divider sx={{ borderStyle: 'dashed' }} />
                            {(order as any).discount_amount > 0 && (
                               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

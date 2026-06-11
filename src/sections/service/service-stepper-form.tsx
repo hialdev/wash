@@ -115,6 +115,7 @@ export function ServiceStepperForm() {
    // Step 3 state: COGS mapping (targetKey: tempId | 'parent' -> array of cogs)
    const [cogsMap, setCogsMap] = useState<Record<string, ICogLocal[]>>({});
    const [activeCogsTab, setActiveCogsTab] = useState<string>('parent');
+   const [copySourceVariant, setCopySourceVariant] = useState<string>('');
    
    // Local BOM editor inputs
    const [newCog, setNewCog] = useState({
@@ -277,6 +278,44 @@ export function ServiceStepperForm() {
          ...cogsMap,
          [targetKey]: updated,
       });
+   };
+
+   const handleApplyBomFromVariant = () => {
+      if (!copySourceVariant) {
+         toast.error('Harap pilih varian sumber terlebih dahulu!');
+         return;
+      }
+
+      const sourceBOM = cogsMap[copySourceVariant] || [];
+      if (sourceBOM.length === 0) {
+         toast.warning('Varian sumber tidak memiliki data BOM untuk disalin.');
+         return;
+      }
+
+      const currentBOM = cogsMap[activeCogsTab] || [];
+
+      // Merge unique raw materials
+      const merged = [...currentBOM];
+      let addedCount = 0;
+      sourceBOM.forEach((item) => {
+         const exists = merged.some((m) => m.raw_material_id === item.raw_material_id);
+         if (!exists) {
+            merged.push({ ...item });
+            addedCount++;
+         }
+      });
+
+      setCogsMap({
+         ...cogsMap,
+         [activeCogsTab]: merged,
+      });
+
+      if (addedCount > 0) {
+         toast.success(`Berhasil menambahkan ${addedCount} data BOM dari varian terpilih!`);
+         setCopySourceVariant('');
+      } else {
+         toast.info('Semua bahan baku dari varian terpilih sudah ada pada varian ini.');
+      }
    };
 
    // Submission handler (Step 4)
@@ -649,7 +688,10 @@ export function ServiceStepperForm() {
                   <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 2 }}>
                      <Tabs
                         value={activeCogsTab}
-                        onChange={(_, val) => setActiveCogsTab(val)}
+                        onChange={(_, val) => {
+                           setActiveCogsTab(val);
+                           setCopySourceVariant('');
+                        }}
                         variant="scrollable"
                         scrollButtons="auto"
                      >
@@ -665,12 +707,54 @@ export function ServiceStepperForm() {
                )}
 
                <Box sx={{ p: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                     {basicValues.is_parent 
-                        ? `Input Bahan Baku untuk Varian: ${localVariants.find(v => v.tempId === activeCogsTab)?.name || ''}`
-                        : 'Input Bahan Baku untuk Layanan Utama'
-                     }
-                  </Typography>
+                  <Stack
+                     direction={{ xs: 'column', sm: 'row' }}
+                     spacing={2}
+                     justifyContent="space-between"
+                     alignItems={{ xs: 'flex-start', sm: 'center' }}
+                     sx={{ mb: 2 }}
+                  >
+                     <Typography variant="subtitle2">
+                        {basicValues.is_parent 
+                           ? `Input Bahan Baku untuk Varian: ${localVariants.find(v => v.tempId === activeCogsTab)?.name || ''}`
+                           : 'Input Bahan Baku untuk Layanan Utama'
+                        }
+                     </Typography>
+
+                     {basicValues.is_parent && localVariants.length > 1 && (
+                        <Stack direction="row" spacing={1} alignItems="center">
+                           <TextField
+                              select
+                              size="small"
+                              label="Salin BOM dari Varian"
+                              value={copySourceVariant}
+                              onChange={(e) => setCopySourceVariant(e.target.value)}
+                              sx={{ minWidth: 200 }}
+                           >
+                              <MenuItem value="">-- Pilih Varian --</MenuItem>
+                              {localVariants
+                                 .filter((v) => v.tempId !== activeCogsTab)
+                                 .map((v) => (
+                                    <MenuItem key={v.tempId} value={v.tempId}>
+                                       {v.name}
+                                    </MenuItem>
+                                 ))
+                              }
+                           </TextField>
+                           <Button
+                              variant="outlined"
+                              color="primary"
+                              size="medium"
+                              startIcon={<Iconify icon="solar:copy-bold" />}
+                              onClick={handleApplyBomFromVariant}
+                              sx={{ height: 40 }}
+                           >
+                              Apply
+                           </Button>
+                        </Stack>
+                     )}
+                  </Stack>
+
                   <Typography variant="caption" color="info.main" sx={{ mb: 2, display: 'block', bgcolor: 'info.lighter', px: 1.5, py: 0.75, borderRadius: 0.75 }}>
                      💡 BOM ini berlaku per{' '}
                      <strong>

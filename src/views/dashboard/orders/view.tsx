@@ -45,16 +45,21 @@ const TABLE_HEAD: TableHeadCellProps[] = [
 ];
 
 const STATUS_OPTIONS = [
-   { value: '', label: 'All Status' },
-   { value: 'waiting_payment', label: 'Waiting Payment' },
-   { value: 'on_progress', label: 'On Progress' },
-   { value: 'finish', label: 'Finished' },
-   { value: 'stock_issue', label: 'Stock Issue' },
-   { value: 'waiting_restock', label: 'Waiting Restock' },
+   { value: '', label: 'Semua Status' },
+   { value: 'pickup', label: 'Penjemputan' },
+   { value: 'calculating', label: 'Penimbangan' },
+   { value: 'waiting_payment', label: 'Menunggu Pembayaran' },
+   { value: 'payment_verification', label: 'Verifikasi Pembayaran' },
+   { value: 'waiting_process', label: 'Menunggu Diproses' },
+   { value: 'on_progress', label: 'Dalam Proses' },
+   { value: 'waiting_finish', label: 'Siap Diambil/Diantar' },
+   { value: 'delivering', label: 'Sedang Diantar' },
+   { value: 'finish', label: 'Selesai' },
+   { value: 'stock_issue', label: 'Masalah Stok' },
+   { value: 'waiting_restock', label: 'Menunggu Restock' },
    { value: 'refund_pending', label: 'Refund Pending' },
-   { value: 'payment_verification', label: 'Payment Verification' },
    { value: 'refunded', label: 'Refunded' },
-   { value: 'canceled', label: 'Canceled' },
+   { value: 'canceled', label: 'Dibatalkan' },
 ];
 
 // ----------------------------------------------------------------------

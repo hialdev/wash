@@ -206,10 +206,14 @@ export default function UsedRawMaterialView() {
    };
 
    const statusColor: Record<string, any> = {
+      pickup: 'info',
+      calculating: 'warning',
       waiting_payment: 'warning',
       waiting_process: 'info',
       payment_verification: 'info',
       on_progress: 'primary',
+      waiting_finish: 'success',
+      delivering: 'primary',
       finish: 'success',
       stock_issue: 'error',
       waiting_restock: 'info',
@@ -219,10 +223,14 @@ export default function UsedRawMaterialView() {
    };
 
    const statusLabel: Record<string, string> = {
+      pickup: 'Penjemputan',
+      calculating: 'Penimbangan',
       waiting_payment: 'Waiting Payment',
       waiting_process: 'Waiting Process',
       payment_verification: 'Payment Verification',
       on_progress: 'On Progress',
+      waiting_finish: 'Siap Diambil/Diantar',
+      delivering: 'Sedang Diantar',
       finish: 'Finished',
       stock_issue: 'Stock Issue',
       waiting_restock: 'Waiting Restock',

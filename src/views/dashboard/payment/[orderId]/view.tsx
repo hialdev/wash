@@ -27,10 +27,14 @@ import { UploadPaymentProofModal } from './components/upload-payment-proof-modal
 // ----------------------------------------------------------------------
 
 type OrderStatus =
+   | 'pickup'
+   | 'calculating'
    | 'waiting_payment'
    | 'payment_verification'
    | 'waiting_process'
    | 'on_progress'
+   | 'waiting_finish'
+   | 'delivering'
    | 'finish'
    | 'stock_issue'
    | 'waiting_restock'
@@ -109,10 +113,14 @@ export function PaymentView() {
    }
 
    const statusColor = {
+      pickup: 'info',
+      calculating: 'warning',
       waiting_payment: 'warning',
       payment_verification: 'info',
       waiting_process: 'info',
       on_progress: 'primary',
+      waiting_finish: 'success',
+      delivering: 'primary',
       finish: 'success',
       stock_issue: 'warning',
       waiting_restock: 'info',
@@ -122,10 +130,14 @@ export function PaymentView() {
    } as const;
 
    const statusLabel = {
+      pickup: 'Penjemputan',
+      calculating: 'Penimbangan',
       waiting_payment: 'Waiting Payment',
       payment_verification: 'Payment Under Verification',
       waiting_process: 'Waiting Process',
       on_progress: 'On Progress',
+      waiting_finish: 'Siap Diambil/Diantar',
+      delivering: 'Sedang Diantar',
       finish: 'Finish',
       stock_issue: 'Stock Issue',
       waiting_restock: 'Waiting Restock',

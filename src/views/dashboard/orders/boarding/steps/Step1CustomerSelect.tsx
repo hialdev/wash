@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from 'minimal-shared/hooks';
 
@@ -16,10 +14,14 @@ import Autocomplete from '@mui/material/Autocomplete';
 import CardContent from '@mui/material/CardContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
+import LoadingButton from '@mui/lab/LoadingButton';
 
+import { useRouter } from 'src/routes/hooks';
+import { paths } from 'src/routes/al/paths';
 import { Iconify } from 'src/components/iconify';
 import { toast } from 'src/components/snackbar';
 import useUserStore, { type UserData } from 'src/stores/user';
+import useOrderStore from 'src/stores/order';
 
 import { AddCustomerModal } from '../components/AddCustomerModal';
 import { AddAddressModal, type IDeliveryAddressResult } from '../components/AddAddressModal';
@@ -27,11 +29,13 @@ import { AddAddressModal, type IDeliveryAddressResult } from '../components/AddA
 // ----------------------------------------------------------------------
 
 interface Props {
-   onNext: (customer: UserData, address: IDeliveryAddressResult) => void;
+   onNext: (customer: UserData, address: IDeliveryAddressResult, deliveryMode: 'store' | 'pickup') => void;
 }
 
 export function Step1CustomerSelect({ onNext }: Props) {
+   const router = useRouter();
    const { all: getAllUsers, getDeliveryAddresses } = useUserStore();
+   const { createPickupOrder } = useOrderStore();
 
    const [searchInput, setSearchInput] = useState('');
    const [customers, setCustomers] = useState<UserData[]>([]);
@@ -41,6 +45,9 @@ export function Step1CustomerSelect({ onNext }: Props) {
    const [addresses, setAddresses] = useState<IDeliveryAddressResult[]>([]);
    const [selectedAddressId, setSelectedAddressId] = useState<string>('');
    const [addressLoading, setAddressLoading] = useState(false);
+
+   const [deliveryMode, setDeliveryMode] = useState<'store' | 'pickup'>('store');
+   const [submitting, setSubmitting] = useState(false);
 
    const [addCustomerOpen, setAddCustomerOpen] = useState(false);
    const [addAddressOpen, setAddAddressOpen] = useState(false);
@@ -98,12 +105,10 @@ export function Step1CustomerSelect({ onNext }: Props) {
    const handleCustomerAdded = (newUser: UserData, firstAddress: IDeliveryAddressResult) => {
       setCustomers((prev) => [newUser, ...prev]);
       setSelectedCustomer(newUser);
-      // Directly set the address returned from the modal, no need to reload
       if (firstAddress) {
          setAddresses([firstAddress]);
          setSelectedAddressId(firstAddress.id);
       } else {
-         // fallback: load addresses from server
          if (newUser.id) loadAddresses(newUser.id);
       }
    };
@@ -113,7 +118,7 @@ export function Step1CustomerSelect({ onNext }: Props) {
       setSelectedAddressId(newAddr.id);
    };
 
-   const handleNext = () => {
+   const handleNext = async () => {
       if (!selectedCustomer) {
          toast.error('Pilih customer terlebih dahulu');
          return;
@@ -123,7 +128,32 @@ export function Step1CustomerSelect({ onNext }: Props) {
          toast.error('Pilih alamat pengiriman');
          return;
       }
-      onNext(selectedCustomer, address);
+
+      if (deliveryMode === 'pickup') {
+         setSubmitting(true);
+         try {
+            const res = await createPickupOrder({
+               data: {
+                  user_id: selectedCustomer.id,
+                  address_receiver: address.address,
+                  phone_receiver: address.phone_number,
+               }
+            });
+            if (res.success && res.data?.id) {
+               toast.success('Berhasil membuat order penjemputan');
+               router.push(paths.dashboard.orders.detail(res.data.id));
+            } else {
+               toast.error(res.message || 'Gagal membuat order penjemputan');
+            }
+         } catch (error) {
+            console.error(error);
+            toast.error('Gagal membuat order penjemputan');
+         } finally {
+            setSubmitting(false);
+         }
+      } else {
+         onNext(selectedCustomer, address, 'store');
+      }
    };
 
    const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
@@ -183,6 +213,41 @@ export function Step1CustomerSelect({ onNext }: Props) {
 
          {selectedCustomer && (
             <>
+               <Typography variant="h6" gutterBottom>
+                  Cara Terima Barang
+               </Typography>
+               <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                     <RadioGroup
+                        row
+                        value={deliveryMode}
+                        onChange={(e) => setDeliveryMode(e.target.value as 'store' | 'pickup')}
+                     >
+                        <FormControlLabel
+                           value="store"
+                           control={<Radio />}
+                           label={
+                              <Box sx={{ ml: 0.5 }}>
+                                 <Typography variant="subtitle2">Barang diantar ke toko</Typography>
+                                 <Typography variant="caption" color="text.secondary">Cucian diserahkan langsung oleh customer di toko</Typography>
+                              </Box>
+                           }
+                           sx={{ mr: 4 }}
+                        />
+                        <FormControlLabel
+                           value="pickup"
+                           control={<Radio />}
+                           label={
+                              <Box sx={{ ml: 0.5 }}>
+                                 <Typography variant="subtitle2">Jemput dari rumah customer</Typography>
+                                 <Typography variant="caption" color="text.secondary">Kurir menjemput cucian ke alamat customer</Typography>
+                              </Box>
+                           }
+                        />
+                     </RadioGroup>
+                  </CardContent>
+               </Card>
+
                <Typography variant="h6" gutterBottom>
                   Pilih Alamat Pengiriman
                </Typography>
@@ -251,6 +316,9 @@ export function Step1CustomerSelect({ onNext }: Props) {
                      <strong>Customer:</strong> {selectedCustomer.name} ({selectedCustomer.phone})
                   </Typography>
                   <Typography variant="body2">
+                     <strong>Cara Terima:</strong> {deliveryMode === 'store' ? 'Barang diantar ke toko' : 'Jemput dari rumah'}
+                  </Typography>
+                  <Typography variant="body2">
                      <strong>Alamat:</strong> {selectedAddress.address}
                   </Typography>
                   <Typography variant="body2">
@@ -261,15 +329,16 @@ export function Step1CustomerSelect({ onNext }: Props) {
          )}
 
          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            <Button
+            <LoadingButton
                variant="contained"
                size="large"
+               loading={submitting}
                onClick={handleNext}
                disabled={!selectedCustomer || !selectedAddressId}
-               endIcon={<Iconify icon="solar:arrow-right-bold" />}
+               endIcon={<Iconify icon={deliveryMode === 'pickup' ? "solar:diskette-bold" : "solar:arrow-right-bold"} />}
             >
-               Lanjut ke Pilih Layanan
-            </Button>
+               {deliveryMode === 'pickup' ? 'Buat Order Penjemputan' : 'Lanjut ke Penimbangan'}
+            </LoadingButton>
          </Box>
 
          <AddCustomerModal

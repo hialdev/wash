@@ -58,8 +58,12 @@ export interface Order {
    address_receiver?: string;
    phone_receiver?: string;
    status?:
+      | 'pickup'
+      | 'calculating'
       | 'waiting_payment'
       | 'on_progress'
+      | 'waiting_finish'
+      | 'delivering'
       | 'finish'
       | 'stock_issue'
       | 'waiting_restock'
@@ -98,6 +102,16 @@ export interface Order {
    bra_pcs?: number;
    sprei_pcs?: number;
    lainnya_pcs?: number;
+   delivery_mode?: 'store' | 'pickup';
+   weighing_images?: string;
+   video?: string;
+   packing_images?: string;
+   delivery_proof_images?: string;
+   fulfillment_mode?: 'pickup' | 'delivery';
+   delivery_name?: string;
+   delivery_phone?: string;
+   delivery_address?: string;
+   min_qty_confirmed?: boolean;
    // Mock/Legacy aliases
    orderNumber?: string;
    createdAt?: string | Date;

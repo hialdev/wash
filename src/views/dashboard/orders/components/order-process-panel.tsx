@@ -177,15 +177,17 @@ export default function OrderProcessPanel({ orderId, orderStatus, onOrderFinishe
                         >
                            Tambah Proses
                         </Button>
-                        <Button
-                           size="small"
-                           variant="contained"
-                           color="success"
-                           startIcon={<Iconify icon="solar:check-circle-bold" />}
-                           onClick={() => setOpenFinish(true)}
-                        >
-                           Selesaikan
-                        </Button>
+                        {orderStatus !== 'on_progress' && (
+                           <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              startIcon={<Iconify icon="solar:check-circle-bold" />}
+                              onClick={() => setOpenFinish(true)}
+                           >
+                              Selesaikan
+                           </Button>
+                        )}
                      </Stack>
                   )
                }

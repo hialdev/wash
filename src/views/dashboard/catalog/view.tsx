@@ -22,6 +22,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import LinearProgress from '@mui/material/LinearProgress';
 
 import { paths } from 'src/routes/al/paths';
+import { api } from 'src/lib/al/axios';
 
 import useAuthStore from 'src/stores/auth';
 import useCartStore from 'src/stores/cart';
@@ -67,6 +68,23 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
    const effectiveTab = isCustomer ? 'services' : activeTab;
    const [loading, setLoading] = useState<boolean>(true);
    const [publicVouchers, setPublicVouchers] = useState<IVoucher[]>([]);
+   const [adminPhone, setAdminPhone] = useState<string>('');
+
+   useEffect(() => {
+      const getWAInfo = async () => {
+         try {
+            const res = await api.get('/wa-info');
+            if (res.data?.success && res.data?.data?.connected) {
+               setAdminPhone(res.data.data.phone);
+            }
+         } catch (err) {
+            console.error('Error fetching WA info:', err);
+         }
+      };
+      if (isCustomer) {
+         getWAInfo();
+      }
+   }, [isCustomer]);
 
    // Selection states
    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -410,6 +428,8 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
                               <ServiceCard
                                  service={service}
                                  onAddToCart={() => handleOpenAddService(service)}
+                                 isCustomer={isCustomer}
+                                 adminPhone={adminPhone}
                               />
                            </Grid>
                         ))}
@@ -420,21 +440,23 @@ export function CatalogView({ checkoutHref, title = 'Catalog' }: { checkoutHref?
          </DashboardContent>
 
          {/* Floating Cart Button */}
-         <Fab
-            color="primary"
-            aria-label="cart"
-            onClick={cartModal.onTrue}
-            sx={{
-               position: 'fixed',
-               bottom: 24,
-               right: 24,
-               zIndex: 1000,
-            }}
-         >
-            <Badge badgeContent={mounted ? cartItemCount : 0} color="error">
-               <Iconify icon="solar:cart-large-2-bold" width={24} />
-            </Badge>
-         </Fab>
+         {!isCustomer && (
+            <Fab
+               color="primary"
+               aria-label="cart"
+               onClick={cartModal.onTrue}
+               sx={{
+                  position: 'fixed',
+                  bottom: 24,
+                  right: 24,
+                  zIndex: 1000,
+               }}
+            >
+               <Badge badgeContent={mounted ? cartItemCount : 0} color="error">
+                  <Iconify icon="solar:cart-large-2-bold" width={24} />
+               </Badge>
+            </Fab>
+         )}
 
          {/* Add to Cart Modal (Product) */}
          {selectedProduct && (

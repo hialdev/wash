@@ -61,6 +61,9 @@ const RenderInput = ({
       case 'text':
          return <Field.Text type="text" name={fieldName} label={name} />;
 
+      case 'textarea':
+         return <Field.Text name={fieldName} label={name} multiline rows={4} />;
+
       case 'number':
          return (
             <Field.Text

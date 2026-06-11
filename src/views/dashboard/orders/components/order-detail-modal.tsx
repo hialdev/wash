@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
 import Dialog from '@mui/material/Dialog';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -59,10 +60,14 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
    };
 
    const statusColor: Record<string, any> = {
+      pickup: 'info',
+      calculating: 'warning',
       waiting_payment: 'warning',
       waiting_process: 'info',
       payment_verification: 'info',
       on_progress: 'primary',
+      waiting_finish: 'success',
+      delivering: 'primary',
       finish: 'success',
       stock_issue: 'error',
       waiting_restock: 'info',
@@ -72,10 +77,14 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
    };
 
    const statusLabel: Record<string, string> = {
+      pickup: 'Penjemputan',
+      calculating: 'Penimbangan',
       waiting_payment: 'Waiting Payment',
       waiting_process: 'Waiting Process',
       payment_verification: 'Payment Verification',
       on_progress: 'On Progress',
+      waiting_finish: 'Siap Diambil/Diantar',
+      delivering: 'Sedang Diantar',
       finish: 'Finished',
       stock_issue: 'Stock Issue',
       waiting_restock: 'Waiting Restock',
@@ -148,6 +157,34 @@ export function OrderDetailModal({ open, onClose, order }: Props) {
                               {fCurrency(order.total_bill || 0)}
                            </Typography>
                         </Box>
+
+                        {(order.weighing_images || order.video) && (
+                           <Box sx={{ mt: 1, p: 1.5, bgcolor: 'background.neutral', borderRadius: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.secondary' }}>Bukti Timbangan</Typography>
+                              {order.weighing_images && order.weighing_images !== '[]' && (
+                                 <Stack direction="row" spacing={1} flexWrap="wrap">
+                                    {parseImages(order.weighing_images).map((img, idx) => (
+                                       <Box
+                                          key={idx}
+                                          component="img"
+                                          src={`${CONFIG.apiHostUrl}/${img}`}
+                                          sx={{ width: 48, height: 48, borderRadius: 0.5, objectFit: 'cover', cursor: 'pointer', border: 1, borderColor: 'divider' }}
+                                          onClick={() => window.open(`${CONFIG.apiHostUrl}/${img}`, '_blank')}
+                                       />
+                                    ))}
+                                 </Stack>
+                              )}
+                              {order.video && (
+                                 <Box sx={{ maxWidth: '100%', mt: 0.5 }}>
+                                    <video
+                                       src={order.video.startsWith('http') ? order.video : `${CONFIG.apiHostUrl}/${order.video}`}
+                                       controls
+                                       style={{ width: '100%', borderRadius: 6, border: '1px solid var(--mui-palette-divider)' }}
+                                    />
+                                 </Box>
+                              )}
+                           </Box>
+                        )}
                      </Box>
                   </CardContent>
                </Card>
