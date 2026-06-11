@@ -99,7 +99,7 @@ func (r *UserHandler) GetUsers(c *fiber.Ctx) error {
 
 	offset := (page - 1) * limit
 
-	db := r.DB.Model(&models.User{}).Preload("Role")
+	db := r.DB.Model(&models.User{}).Preload("Role").Preload("DeliveryAddresses")
 
 	// --- Filter employees (Kasir, Manager) if requester is Manager or Owner
 	currentUserRole, _ := r.getCurrentUserRole(c)
@@ -307,7 +307,7 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 	// Reload user dengan relasi atau field generated (opsional)
 	// Jika model User punya relasi (e.g. Role), preload di sini
 	var user models.User
-	if err := h.DB.Preload("Role").First(&user, newUser.ID).Error; err != nil { // sesuaikan dengan relasi-mu
+	if err := h.DB.Preload("Role").First(&user, "id = ?", newUser.ID).Error; err != nil { // sesuaikan dengan relasi-mu
 		return utils.RespApi(c, "ise", "Gagal mengambil data user", err.Error())
 	}
 
@@ -515,6 +515,11 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 		if err := utils.DeleteFile(*user.Image); err != nil {
 			return utils.RespApi(c, "ise", "Gagal Menghapus Image", err.Error())
 		}
+	}
+
+	// Delete related delivery addresses first to avoid foreign key violations
+	if err := h.DB.Where("user_id = ?", user.ID).Delete(&models.DeliveryAddress{}).Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal Menghapus alamat pengiriman user", err.Error())
 	}
 
 	if err := h.DB.Delete(&user).Error; err != nil {

@@ -19,6 +19,22 @@
         "set_type": "image",
         "set_options": "",
         "is_urgent": true
+      },
+      {
+        "name": "App Name",
+        "set_key": "dash.app_name",
+        "set_value": "POS EMA WASH",
+        "set_type": "text",
+        "set_options": "",
+        "is_urgent": true
+      },
+      {
+        "name": "App Description",
+        "set_key": "dash.app_description",
+        "set_value": "POS EMA WASH - Laundry & Dry Cleaning. Bismillah Berkah Dunia Akhirat.",
+        "set_type": "textarea",
+        "set_options": "",
+        "is_urgent": true
       }
     ]
   }

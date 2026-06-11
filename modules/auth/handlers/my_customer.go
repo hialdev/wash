@@ -135,7 +135,7 @@ func (h *MyCustomerHandler) AddMyCustomer(c *fiber.Ctx) error {
 	}
 
 	// Reload with preloads
-	h.DB.Preload("Role").First(&newUser, newUser.ID)
+	h.DB.Preload("Role").First(&newUser, "id = ?", newUser.ID)
 
 	return utils.RespApi(c, "ok", "Pelanggan berhasil ditambahkan", newUser)
 }

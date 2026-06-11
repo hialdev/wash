@@ -17,7 +17,7 @@ type SettingInitialInput struct {
 	Description *string `json:"description,omitempty" validate:"omitempty"`
 	SetKey      string  `json:"set_key" validate:"required"`
 	GroupID     uuid.UUID  `json:"group_id" validate:"required"` // <-- sesuai model
-	SetType     string  `json:"set_type" validate:"oneof=text number checkbox radio select selects file image files images richtext markdown"`
+	SetType     string  `json:"set_type" validate:"oneof=text textarea number checkbox radio select selects file image files images richtext markdown"`
 	SetValue    *string `json:"set_value" validate:"omitempty"`
 	SetOptions  *string `json:"set_options" validate:"omitempty"`
 	IsUrgent    bool    `json:"is_urgent" validate:"boolean"`
@@ -107,7 +107,7 @@ func (h *SettingHandler) ValueSetting(c *fiber.Ctx) error {
 	var filePaths []string
 
 	switch setting.SetType {
-	case "text", "richtext", "markdown":
+	case "text", "textarea", "richtext", "markdown":
 		newValue = c.FormValue("set_value")
 
 	case "number":

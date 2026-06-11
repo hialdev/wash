@@ -87,6 +87,7 @@ func (h *OrderHandler) GetOrder(c *fiber.Ctx) error {
 		Preload("OrderServices.Service"). // Preload services
 		Preload("OrderServices.ServiceVariant"). // Preload variants
 		Preload("Voucher").
+		Preload("User").
 		First(&order, "id = ?", id).Error; err != nil {
 		return utils.RespApi(c, "ise", "Gagal mendapatkan data Order", err.Error())
 	}
@@ -110,7 +111,8 @@ func (h *OrderHandler) GetAllOrders(c *fiber.Ctx) error {
 		Preload("OrderProducts.Product").
 		Preload("OrderServices.Service").
 		Preload("OrderServices.ServiceVariant").
-		Preload("Voucher")
+		Preload("Voucher").
+		Preload("User")
 
 	// Filter search
 	if search != "" {
@@ -549,6 +551,7 @@ func (h *OrderHandler) AddOrder(c *fiber.Ctx) error {
 	h.DB.Preload("OrderProducts.Product").
 		Preload("OrderServices.Service"). // Preload services
 		Preload("OrderServices.ServiceVariant"). // Preload variants
+		Preload("User").
 		First(&order, "id = ?", order.ID)
 
 	return utils.RespApi(c, "ok", "Berhasil membuat data Order", order)
@@ -1382,3 +1385,799 @@ func (h *OrderHandler) AdminFinish(c *fiber.Ctx) error {
 
 	return utils.RespApi(c, "ok", "Order marked as finished", nil)
 }
+
+// ==============================================================================
+// ENHANCED LAUNDRY FLOW HANDLERS
+// ==============================================================================
+
+type CreatePickupInput struct {
+	UserID          *uuid.UUID `json:"user_id" validate:"required"`
+	AddressReceiver *string    `json:"address_receiver" validate:"required"`
+	PhoneReceiver   *string    `json:"phone_receiver" validate:"required"`
+	Notes           *string    `json:"notes,omitempty"`
+}
+
+func (h *OrderHandler) CreatePickupOrder(c *fiber.Ctx) error {
+	var input CreatePickupInput
+	if err := c.BodyParser(&input); err != nil {
+		return utils.RespApi(c, "bad", "Format input tidak valid", err.Error())
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(&input); err != nil {
+		return utils.RespApi(c, "bad", "Validasi input gagal", err.Error())
+	}
+
+	orderNumber := fmt.Sprintf("ORD-%s-%d", time.Now().Format("20060102"), time.Now().Unix())
+	status := "pickup"
+	deliveryMode := "pickup"
+	totalBill := 0.0
+
+	var adminID *uuid.UUID
+	if uID := c.Locals("user_id"); uID != nil {
+		if uid, ok := uID.(uuid.UUID); ok {
+			adminID = &uid
+		}
+	}
+
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	order := models.Order{
+		OrderNumber:     &orderNumber,
+		UserID:          input.UserID,
+		AddressReceiver: input.AddressReceiver,
+		PhoneReceiver:   input.PhoneReceiver,
+		Status:          &status,
+		DeliveryMode:    &deliveryMode,
+		Notes:           input.Notes,
+		TotalBill:       &totalBill,
+	}
+
+	if err := tx.Create(&order).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Tidak dapat membuat Order penjemputan", err.Error())
+	}
+
+	if err := CreateOrderLog(tx, order.ID, status, GetDefaultReason(status), nil, adminID); err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Tidak dapat membuat log Order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal menyimpan transaksi Order", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Berhasil membuat Order penjemputan", order)
+}
+
+func (h *OrderHandler) CreateStoreOrder(c *fiber.Ctx) error {
+	var input CreatePickupInput
+	if err := c.BodyParser(&input); err != nil {
+		return utils.RespApi(c, "bad", "Format input tidak valid", err.Error())
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(&input); err != nil {
+		return utils.RespApi(c, "bad", "Validasi input gagal", err.Error())
+	}
+
+	orderNumber := fmt.Sprintf("ORD-%s-%d", time.Now().Format("20060102"), time.Now().Unix())
+	status := "calculating"
+	deliveryMode := "store"
+	totalBill := 0.0
+
+	var adminID *uuid.UUID
+	if uID := c.Locals("user_id"); uID != nil {
+		if uid, ok := uID.(uuid.UUID); ok {
+			adminID = &uid
+		}
+	}
+
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	order := models.Order{
+		OrderNumber:     &orderNumber,
+		UserID:          input.UserID,
+		AddressReceiver: input.AddressReceiver,
+		PhoneReceiver:   input.PhoneReceiver,
+		Status:          &status,
+		DeliveryMode:    &deliveryMode,
+		Notes:           input.Notes,
+		TotalBill:       &totalBill,
+	}
+
+	if err := tx.Create(&order).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Tidak dapat membuat Order toko", err.Error())
+	}
+
+	if err := CreateOrderLog(tx, order.ID, status, GetDefaultReason(status), nil, adminID); err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Tidak dapat membuat log Order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal menyimpan transaksi Order", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Berhasil membuat Order toko", order)
+}
+
+type WeighingInput struct {
+	WeightKg        *float64            `json:"weight_kg" validate:"required,gt=0"`
+	TotalPcs        *int                `json:"total_pcs" validate:"required,gt=0"`
+	SelimutPcs      *int                `json:"selimut_pcs,omitempty"`
+	CelanaPcs       *int                `json:"celana_pcs,omitempty"`
+	BajuPcs         *int                `json:"baju_pcs,omitempty"`
+	SempakPcs       *int                `json:"sempak_pcs,omitempty"`
+	BraPcs          *int                `json:"bra_pcs,omitempty"`
+	SpreiPcs        *int                `json:"sprei_pcs,omitempty"`
+	LainnyaPcs      *int                `json:"lainnya_pcs,omitempty"`
+	MinQtyConfirmed *bool               `json:"min_qty_confirmed,omitempty"`
+	Products        []OrderProductInput `json:"products,omitempty" validate:"omitempty,dive"`
+	Services        []OrderServiceInput `json:"services,omitempty" validate:"omitempty,dive"`
+	VoucherCode     *string             `json:"voucher_code,omitempty"`
+}
+
+func parseWeighingInput(c *fiber.Ctx) (WeighingInput, error) {
+	var input WeighingInput
+
+	// Try BodyParser first
+	if err := c.BodyParser(&input); err == nil && input.WeightKg != nil {
+		return input, nil
+	}
+
+	// Fallback to FormValue (for multipart form)
+	weightStr := c.FormValue("weight_kg")
+	if weightStr != "" {
+		w, err := strconv.ParseFloat(weightStr, 64)
+		if err == nil {
+			input.WeightKg = &w
+		}
+	}
+
+	pcsStr := c.FormValue("total_pcs")
+	if pcsStr != "" {
+		p, err := strconv.Atoi(pcsStr)
+		if err == nil {
+			input.TotalPcs = &p
+		}
+	}
+
+	parsePcsField := func(fieldName string) *int {
+		valStr := c.FormValue(fieldName)
+		if valStr != "" {
+			val, err := strconv.Atoi(valStr)
+			if err == nil {
+				return &val
+			}
+		}
+		return nil
+	}
+
+	input.SelimutPcs = parsePcsField("selimut_pcs")
+	input.CelanaPcs = parsePcsField("celana_pcs")
+	input.BajuPcs = parsePcsField("baju_pcs")
+	input.SempakPcs = parsePcsField("sempak_pcs")
+	input.BraPcs = parsePcsField("bra_pcs")
+	input.SpreiPcs = parsePcsField("sprei_pcs")
+	input.LainnyaPcs = parsePcsField("lainnya_pcs")
+
+	confirmStr := c.FormValue("min_qty_confirmed")
+	if confirmStr != "" {
+		conf := confirmStr == "true" || confirmStr == "1"
+		input.MinQtyConfirmed = &conf
+	}
+
+	voucherStr := c.FormValue("voucher_code")
+	if voucherStr != "" {
+		input.VoucherCode = &voucherStr
+	}
+
+	productsStr := c.FormValue("products")
+	if productsStr != "" && productsStr != "[]" && productsStr != "null" {
+		var products []OrderProductInput
+		if err := json.Unmarshal([]byte(productsStr), &products); err == nil {
+			input.Products = products
+		}
+	}
+
+	servicesStr := c.FormValue("services")
+	if servicesStr != "" && servicesStr != "[]" && servicesStr != "null" {
+		var services []OrderServiceInput
+		if err := json.Unmarshal([]byte(servicesStr), &services); err == nil {
+			input.Services = services
+		}
+	}
+
+	return input, nil
+}
+
+func getUploadedImages(c *fiber.Ctx, fieldName string) []string {
+	if paths, err := utils.UploadFileFlex(c, fieldName, "order_proofs"); err == nil && len(paths) > 0 {
+		return paths
+	}
+	if paths, err := utils.UploadFileFlex(c, "images", "order_proofs"); err == nil && len(paths) > 0 {
+		return paths
+	}
+	return nil
+}
+
+func (h *OrderHandler) SubmitWeighing(c *fiber.Ctx) error {
+	return h.processWeighing(c, false)
+}
+
+func (h *OrderHandler) ConfirmMinQty(c *fiber.Ctx) error {
+	return h.processWeighing(c, true)
+}
+
+func (h *OrderHandler) processWeighing(c *fiber.Ctx, forceConfirm bool) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "ID Order tidak valid", nil)
+	}
+
+	var order models.Order
+	if err := h.DB.First(&order, "id = ?", id).Error; err != nil {
+		return utils.RespApi(c, "nf", "Order tidak ditemukan", err.Error())
+	}
+
+	if *order.Status != "pickup" && *order.Status != "calculating" {
+		return utils.RespApi(c, "bad", "Order tidak berada dalam status penimbangan", nil)
+	}
+
+	input, err := parseWeighingInput(c)
+	if err != nil {
+		return utils.RespApi(c, "bad", "Gagal parse input penimbangan", err.Error())
+	}
+
+	if forceConfirm {
+		confirm := true
+		input.MinQtyConfirmed = &confirm
+	}
+
+	// Upload weighing images
+	var images []string
+	if paths := getUploadedImages(c, "weighing_images"); len(paths) > 0 {
+		images = paths
+	}
+	var imagesJSON *string
+	if len(images) > 0 {
+		imagesBytes, _ := json.Marshal(images)
+		imagesStr := string(imagesBytes)
+		imagesJSON = &imagesStr
+	}
+
+	// Handle video upload if present
+	var videoPath *string
+	videoFile, err := c.FormFile("video")
+	if err == nil && videoFile != nil {
+		if videoFile.Size > 50*1024*1024 {
+			return utils.RespApi(c, "bad", fmt.Sprintf("File video %s terlalu besar (maksimal 50MB)", videoFile.Filename), nil)
+		}
+		utils.EnsureDir("uploads/videos")
+		filename := fmt.Sprintf("%d-%s", utils.MakeTimestamp(), strings.ReplaceAll(videoFile.Filename, " ", "-"))
+		path := filepath.Join("uploads", "videos", filename)
+		if err := c.SaveFile(videoFile, path); err != nil {
+			return utils.RespApi(c, "ise", "Gagal menyimpan video", err.Error())
+		}
+		videoPath = &path
+	}
+
+	// Calculate bill for products and services
+	var totalBill float64
+	var orderItems []struct {
+		ProductID       *uuid.UUID
+		Qty             *int
+		RequestedLength *float64
+		MeasurementUnit *string
+		PriceAtOrder    *float64
+		Subtotal        *float64
+	}
+
+	for _, productInput := range input.Products {
+		var product models.Product
+		if err := h.DB.First(&product, "id = ?", productInput.ProductID).Error; err != nil {
+			return utils.RespApi(c, "bad", "Product tidak ditemukan", err.Error())
+		}
+		priceAtOrder := *product.SalePrice
+		qty := 1
+		if productInput.Qty != nil {
+			qty = *productInput.Qty
+		}
+		subtotal := priceAtOrder * float64(qty)
+		totalBill += subtotal
+
+		orderItems = append(orderItems, struct {
+			ProductID       *uuid.UUID
+			Qty             *int
+			RequestedLength *float64
+			MeasurementUnit *string
+			PriceAtOrder    *float64
+			Subtotal        *float64
+		}{
+			ProductID:       productInput.ProductID,
+			Qty:             &qty,
+			RequestedLength: productInput.RequestedLength,
+			MeasurementUnit: productInput.MeasurementUnit,
+			PriceAtOrder:    &priceAtOrder,
+			Subtotal:        &subtotal,
+		})
+	}
+
+	var orderServiceItems []struct {
+		ServiceID        *uuid.UUID
+		ServiceVariantID *uuid.UUID
+		Qty              *float64
+		PriceAtOrder     *float64
+		Subtotal         *float64
+		Notes            *string
+	}
+
+	belowMin := false
+	var belowMinDetails []string
+
+	for _, serviceInput := range input.Services {
+		var service models.Service
+		fetchID := serviceInput.ServiceID
+		if serviceInput.ServiceVariantID != nil {
+			fetchID = serviceInput.ServiceVariantID
+		}
+		if err := h.DB.First(&service, "id = ?", fetchID).Error; err != nil {
+			return utils.RespApi(c, "bad", "Service tidak ditemukan", err.Error())
+		}
+
+		// Check min qty
+		if service.MinimumQtyOrder != nil && serviceInput.Qty != nil && *serviceInput.Qty < *service.MinimumQtyOrder {
+			belowMin = true
+			belowMinDetails = append(belowMinDetails, fmt.Sprintf("%s (minimum %g %s)", *service.Name, *service.MinimumQtyOrder, *service.Unit))
+		}
+
+		priceAtOrder := *service.Price
+		qty := 1.0
+		if serviceInput.Qty != nil {
+			qty = *serviceInput.Qty
+		}
+		subtotal := priceAtOrder * qty
+		totalBill += subtotal
+
+		orderServiceItems = append(orderServiceItems, struct {
+			ServiceID        *uuid.UUID
+			ServiceVariantID *uuid.UUID
+			Qty              *float64
+			PriceAtOrder     *float64
+			Subtotal         *float64
+			Notes            *string
+		}{
+			ServiceID:        serviceInput.ServiceID,
+			ServiceVariantID: serviceInput.ServiceVariantID,
+			Qty:              &qty,
+			PriceAtOrder:     &priceAtOrder,
+			Subtotal:         &subtotal,
+			Notes:            serviceInput.Notes,
+		})
+	}
+
+	var adminID *uuid.UUID
+	if uID := c.Locals("user_id"); uID != nil {
+		if uid, ok := uID.(uuid.UUID); ok {
+			adminID = &uid
+		}
+	}
+
+	isConfirmed := input.MinQtyConfirmed != nil && *input.MinQtyConfirmed
+	if belowMin && !isConfirmed {
+		// Just save details, keep calculating status
+		updates := map[string]interface{}{
+			"weight_kg":   input.WeightKg,
+			"total_pcs":   input.TotalPcs,
+			"selimut_pcs": input.SelimutPcs,
+			"celana_pcs":  input.CelanaPcs,
+			"baju_pcs":    input.BajuPcs,
+			"sempak_pcs":  input.SempakPcs,
+			"bra_pcs":     input.BraPcs,
+			"sprei_pcs":   input.SpreiPcs,
+			"lainnya_pcs": input.LainnyaPcs,
+			"status":      "calculating",
+		}
+		if imagesJSON != nil {
+			updates["weighing_images"] = imagesJSON
+		}
+		if videoPath != nil {
+			updates["video"] = videoPath
+		}
+		if err := h.DB.Model(&order).Updates(updates).Error; err != nil {
+			return utils.RespApi(c, "ise", "Gagal menyimpan detail penimbangan", err.Error())
+		}
+
+		h.DB.First(&order, "id = ?", id)
+
+		return utils.RespApi(c, "ok", "Peringatan: Kuantitas di bawah batas minimum", fiber.Map{
+			"below_minimum": true,
+			"details":       belowMinDetails,
+			"order":         order,
+		})
+	}
+
+	// Apply Voucher
+	var voucherID *uuid.UUID
+	var discountAmount float64
+	if input.VoucherCode != nil && *input.VoucherCode != "" {
+		upperCode := strings.ToUpper(*input.VoucherCode)
+		var voucher models.Voucher
+		if err := h.DB.Where("code = ?", upperCode).First(&voucher).Error; err == nil {
+			if voucher.IsActive != nil && *voucher.IsActive {
+				if *voucher.DiscountType == "percentage" {
+					discountAmount = totalBill * (*voucher.DiscountValue / 100)
+					if voucher.MaxDiscount != nil && *voucher.MaxDiscount > 0 && discountAmount > *voucher.MaxDiscount {
+						discountAmount = *voucher.MaxDiscount
+					}
+				} else {
+					discountAmount = *voucher.DiscountValue
+				}
+				if discountAmount > totalBill {
+					discountAmount = totalBill
+				}
+				totalBill -= discountAmount
+				voucherID = &voucher.ID
+			}
+		}
+	}
+
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	tx.Where("order_id = ?", order.ID).Delete(&models.OrderProduct{})
+	tx.Where("order_id = ?", order.ID).Delete(&models.OrderService{})
+
+	for _, item := range orderItems {
+		op := models.OrderProduct{
+			OrderID:         &order.ID,
+			ProductID:       item.ProductID,
+			Qty:             item.Qty,
+			RequestedLength: item.RequestedLength,
+			MeasurementUnit: item.MeasurementUnit,
+			PriceAtOrder:    item.PriceAtOrder,
+		}
+		if err := tx.Create(&op).Error; err != nil {
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Gagal menyimpan item produk", err.Error())
+		}
+	}
+
+	for _, item := range orderServiceItems {
+		os := models.OrderService{
+			OrderID:          &order.ID,
+			ServiceID:        item.ServiceID,
+			ServiceVariantID: item.ServiceVariantID,
+			Qty:              item.Qty,
+			PriceAtOrder:     item.PriceAtOrder,
+			Subtotal:         item.Subtotal,
+			Notes:            item.Notes,
+		}
+		if err := tx.Create(&os).Error; err != nil {
+			tx.Rollback()
+			return utils.RespApi(c, "ise", "Gagal menyimpan item layanan", err.Error())
+		}
+	}
+
+	statusWaitingPayment := "waiting_payment"
+	minQtyConfirmedVal := isConfirmed
+
+	updates := map[string]interface{}{
+		"status":            &statusWaitingPayment,
+		"weight_kg":         input.WeightKg,
+		"total_pcs":         input.TotalPcs,
+		"selimut_pcs":       input.SelimutPcs,
+		"celana_pcs":        input.CelanaPcs,
+		"baju_pcs":          input.BajuPcs,
+		"sempak_pcs":        input.SempakPcs,
+		"bra_pcs":           input.BraPcs,
+		"sprei_pcs":         input.SpreiPcs,
+		"lainnya_pcs":       input.LainnyaPcs,
+		"min_qty_confirmed": &minQtyConfirmedVal,
+		"total_bill":        &totalBill,
+		"voucher_id":        voucherID,
+		"discount_amount":   &discountAmount,
+	}
+	if imagesJSON != nil {
+		updates["weighing_images"] = imagesJSON
+	}
+	if videoPath != nil {
+		updates["video"] = videoPath
+	}
+
+	if err := tx.Model(&order).Updates(updates).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal memperbarui data order", err.Error())
+	}
+
+	if err := CreateOrderLog(tx, order.ID, statusWaitingPayment, GetDefaultReason(statusWaitingPayment), nil, adminID); err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal mencatat log status order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal komit transaksi order", err.Error())
+	}
+
+	h.DB.Preload("OrderProducts.Product").
+		Preload("OrderServices.Service").
+		Preload("OrderServices.ServiceVariant").
+		Preload("User").
+		First(&order, "id = ?", id)
+
+	return utils.RespApi(c, "ok", "Berhasil menyimpan hasil penimbangan", order)
+}
+
+func (h *OrderHandler) SetFulfillmentMode(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "ID Order tidak valid", nil)
+	}
+
+	var order models.Order
+	if err := h.DB.First(&order, "id = ?", id).Error; err != nil {
+		return utils.RespApi(c, "nf", "Order tidak ditemukan", err.Error())
+	}
+
+	fulfillmentMode := c.FormValue("fulfillment_mode")
+	deliveryName := c.FormValue("delivery_name")
+	deliveryPhone := c.FormValue("delivery_phone")
+	deliveryAddress := c.FormValue("delivery_address")
+
+	if fulfillmentMode == "" {
+		return utils.RespApi(c, "bad", "Fulfillment mode harus diisi", nil)
+	}
+
+	var images []string
+	if paths := getUploadedImages(c, "packing_images"); len(paths) > 0 {
+		images = paths
+	}
+	var imagesJSON *string
+	if len(images) > 0 {
+		imagesBytes, _ := json.Marshal(images)
+		imagesStr := string(imagesBytes)
+		imagesJSON = &imagesStr
+	}
+
+	var adminID *uuid.UUID
+	if uID := c.Locals("user_id"); uID != nil {
+		if uid, ok := uID.(uuid.UUID); ok {
+			adminID = &uid
+		}
+	}
+
+	statusWaitingFinish := "waiting_finish"
+	updates := map[string]interface{}{
+		"fulfillment_mode": &fulfillmentMode,
+		"packing_images":   imagesJSON,
+		"status":           &statusWaitingFinish,
+	}
+
+	if fulfillmentMode == "delivery" {
+		updates["delivery_name"] = &deliveryName
+		updates["delivery_phone"] = &deliveryPhone
+		updates["delivery_address"] = &deliveryAddress
+	} else {
+		// Clear delivery fields if store
+		updates["delivery_name"] = nil
+		updates["delivery_phone"] = nil
+		updates["delivery_address"] = nil
+	}
+
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Model(&order).Updates(updates).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal memperbarui fulfillment mode", err.Error())
+	}
+
+	if err := CreateOrderLog(tx, order.ID, statusWaitingFinish, GetDefaultReason(statusWaitingFinish), nil, adminID); err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal mencatat log status order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal komit transaksi order", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Berhasil mengatur fulfillment mode", order)
+}
+
+func (h *OrderHandler) StartDelivery(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "ID Order tidak valid", nil)
+	}
+
+	var order models.Order
+	if err := h.DB.First(&order, "id = ?", id).Error; err != nil {
+		return utils.RespApi(c, "nf", "Order tidak ditemukan", err.Error())
+	}
+
+	deliveryName := c.FormValue("delivery_name")
+	deliveryPhone := c.FormValue("delivery_phone")
+	deliveryAddress := c.FormValue("delivery_address")
+
+	var adminID *uuid.UUID
+	if uID := c.Locals("user_id"); uID != nil {
+		if uid, ok := uID.(uuid.UUID); ok {
+			adminID = &uid
+		}
+	}
+
+	statusDelivering := "delivering"
+	updates := map[string]interface{}{
+		"status": &statusDelivering,
+	}
+
+	if deliveryName != "" {
+		updates["delivery_name"] = &deliveryName
+	}
+	if deliveryPhone != "" {
+		updates["delivery_phone"] = &deliveryPhone
+	}
+	if deliveryAddress != "" {
+		updates["delivery_address"] = &deliveryAddress
+	}
+
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Model(&order).Updates(updates).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal memperbarui status pengiriman", err.Error())
+	}
+
+	reason := GetDefaultReason(statusDelivering)
+	if deliveryName != "" {
+		reason = fmt.Sprintf("Pesanan sedang dalam pengantaran oleh %s", deliveryName)
+	}
+
+	if err := CreateOrderLog(tx, order.ID, statusDelivering, reason, nil, adminID); err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal mencatat log status order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal komit transaksi order", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Pengantaran dimulai", order)
+}
+
+func (h *OrderHandler) CompleteOrder(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "ID Order tidak valid", nil)
+	}
+
+	var order models.Order
+	if err := h.DB.First(&order, "id = ?", id).Error; err != nil {
+		return utils.RespApi(c, "nf", "Order tidak ditemukan", err.Error())
+	}
+
+	var images []string
+	if paths := getUploadedImages(c, "delivery_proof_images"); len(paths) > 0 {
+		images = paths
+	}
+	var imagesJSON *string
+	if len(images) > 0 {
+		imagesBytes, _ := json.Marshal(images)
+		imagesStr := string(imagesBytes)
+		imagesJSON = &imagesStr
+	}
+
+	var adminID *uuid.UUID
+	if uID := c.Locals("user_id"); uID != nil {
+		if uid, ok := uID.(uuid.UUID); ok {
+			adminID = &uid
+		}
+	}
+
+	statusFinish := "finish"
+	updates := map[string]interface{}{
+		"status":                &statusFinish,
+		"delivery_proof_images": imagesJSON,
+	}
+
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Model(&order).Updates(updates).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal menyelesaikan order", err.Error())
+	}
+
+	if err := CreateOrderLog(tx, order.ID, statusFinish, GetDefaultReason(statusFinish), nil, adminID); err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal mencatat log status order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal komit transaksi order", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Order selesai", order)
+}
+
+func (h *OrderHandler) PickupDone(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return utils.RespApi(c, "bad", "ID Order tidak valid", nil)
+	}
+
+	var order models.Order
+	if err := h.DB.First(&order, "id = ?", id).Error; err != nil {
+		return utils.RespApi(c, "nf", "Order tidak ditemukan", err.Error())
+	}
+
+	if order.Status == nil || *order.Status != "pickup" {
+		return utils.RespApi(c, "bad", "Order tidak berada dalam status penjemputan", nil)
+	}
+
+	var adminID *uuid.UUID
+	if uID := c.Locals("user_id"); uID != nil {
+		if uid, ok := uID.(uuid.UUID); ok {
+			adminID = &uid
+		}
+	}
+
+	statusCalculating := "calculating"
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Model(&order).Update("status", &statusCalculating).Error; err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal memperbarui status order", err.Error())
+	}
+
+	if err := CreateOrderLog(tx, order.ID, statusCalculating, GetDefaultReason(statusCalculating), nil, adminID); err != nil {
+		tx.Rollback()
+		return utils.RespApi(c, "ise", "Gagal mencatat log status order", err.Error())
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return utils.RespApi(c, "ise", "Gagal komit transaksi order", err.Error())
+	}
+
+	return utils.RespApi(c, "ok", "Pakaian berhasil dijemput dan masuk tahap penimbangan", order)
+}
+

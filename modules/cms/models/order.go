@@ -49,6 +49,17 @@ type Order struct {
 	BraPcs     *int     `json:"bra_pcs,omitempty" gorm:"type:int"`
 	SpreiPcs   *int     `json:"sprei_pcs,omitempty" gorm:"type:int"`
 	LainnyaPcs *int     `json:"lainnya_pcs,omitempty" gorm:"type:int"`
+
+	// Enhanced laundry flow fields
+	DeliveryMode        *string  `json:"delivery_mode,omitempty" gorm:"type:varchar(20);default:'store'"`
+	WeighingImages      *string  `json:"weighing_images,omitempty" gorm:"type:text"` // JSON Array
+	PackingImages       *string  `json:"packing_images,omitempty" gorm:"type:text"` // JSON Array
+	DeliveryProofImages *string  `json:"delivery_proof_images,omitempty" gorm:"type:text"` // JSON Array
+	FulfillmentMode     *string  `json:"fulfillment_mode,omitempty" gorm:"type:varchar(20)"`
+	DeliveryName        *string  `json:"delivery_name,omitempty" gorm:"type:varchar(200)"`
+	DeliveryPhone       *string  `json:"delivery_phone,omitempty" gorm:"type:varchar(50)"`
+	DeliveryAddress     *string  `json:"delivery_address,omitempty" gorm:"type:text"`
+	MinQtyConfirmed     *bool    `json:"min_qty_confirmed,omitempty" gorm:"type:boolean;default:false"`
 }
 
 type OrderProduct struct {

@@ -20,5 +20,6 @@ type User struct {
 	CreatedBy       *uuid.UUID `json:"created_by,omitempty" gorm:"type:uuid;index"`
 
 	Role Role `json:"role,omitempty" gorm:"foreignKey:RoleID;constraint:SET NULL;"`
+	DeliveryAddresses []DeliveryAddress `json:"delivery_addresses" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
 }
 

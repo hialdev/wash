@@ -91,6 +91,9 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	catalogService := handlers.NewCatalogServiceHandler(db)
 	api.Get("/catalog/services", catalogService.GetCatalogServices)
 
+	// Public WA Info (for customer catalog → WhatsApp redirect)
+	api.Get("/wa-info", handlers.GetWAInfo)
+
 	// Protected User Actions (require valid JWT)
 	myOrder := handlers.NewMyOrderHandler(db)
 	userRoutes := api.Group("/user") // Group for user-centric routes
@@ -111,6 +114,16 @@ func SetupCMSRoutes(app *fiber.App, db *gorm.DB) {
 	od.Get("/", middlewares.DoACL("Read Order"), orders.GetAllOrders)
 	od.Get("/:id", middlewares.DoACL("Read Order"), orders.GetOrder)
 	od.Post("/", middlewares.DoACL("Add Order"), orders.AddOrder)
+
+	// New laundry flow endpoints
+	od.Post("/create-pickup", middlewares.DoACL("Add Order"), orders.CreatePickupOrder)
+	od.Post("/create-store", middlewares.DoACL("Add Order"), orders.CreateStoreOrder)
+	od.Post("/:id/weighing", middlewares.DoACL("Update Order"), orders.SubmitWeighing)
+	od.Post("/:id/confirm-min-qty", middlewares.DoACL("Update Order"), orders.ConfirmMinQty)
+	od.Post("/:id/pickup-done", middlewares.DoACL("Update Order"), orders.PickupDone)
+	od.Post("/:id/fulfillment", middlewares.DoACL("Update Order"), orders.SetFulfillmentMode)
+	od.Post("/:id/start-delivery", middlewares.DoACL("Update Order"), orders.StartDelivery)
+	od.Post("/:id/complete", middlewares.DoACL("Update Order"), orders.CompleteOrder)
 
 	// Customer actions for stock_issue orders (no ACL - customer self-service)
 	od.Post("/:id/request-refund", orders.RequestRefund)
